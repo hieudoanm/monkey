@@ -78,7 +78,8 @@ and `src/tree_sitter/*.h` files.
   vars and the SDK/key discovery in `scripts/runtime-preview.mjs`.
 - Zed language tasks cannot execute files inside the extension directory, so
   `tasks.json` calls `monkey-c-preview` from `PATH`. `scripts/install.sh` is what
-  makes that work.
+  makes that work. The `Monkey C: Lint File`/`Check Project` tasks likewise call
+  the `monkey` CLI (Rust toolchain in `crates/`), which must be on `PATH`.
 - The Jungle grammar is referenced from this repository with
   `rev = "master"` and `path = "packages/extensions/zed/grammars/tree-sitter-jungle"`.
   Zed fetches grammars by Git revision, so that directory must be committed and
