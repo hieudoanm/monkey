@@ -27,7 +27,7 @@ const FEATURES: Feature[] = [
   {
     icon: LuTerminal,
     title: 'monkey CLI',
-    body: 'Zero-dependency Rust binary with format, lint, check, parse, tokens, doctor, sdk, device, and project commands for .mc and .jungle files. Prebuilt for Linux, macOS, and Windows.',
+    body: 'Zero-dependency Rust binary with format, lint, check, parse, tokens, doctor, sdk, device, project, build, and run commands — it even compiles PRGs and launches the simulator via the official SDK. Prebuilt for Linux, macOS, and Windows.',
   },
   {
     icon: LuBraces,
@@ -51,6 +51,11 @@ const FEATURES: Feature[] = [
   },
   {
     icon: LuMonitor,
+    title: 'Build & run',
+    body: 'monkey build compiles a PRG with the official monkeyc; monkey run builds, starts the simulator, and deploys with monkeydo — the same flow as the editor runtime preview, from the terminal.',
+  },
+  {
+    icon: LuPackage,
     title: 'SDK & device discovery',
     body: 'monkey doctor, sdk, and device commands find your Connect IQ SDK, developer key, and 180+ device profiles using the same lookup order as the editor extensions — never hardcoded.',
   },
@@ -97,6 +102,16 @@ const DEMO_TERMINALS: { caption: string; lines: string[]; wide?: boolean }[] = [
   {
     caption: 'Parse check',
     lines: ['$ monkey parse App.mc', 'App.mc: ok'],
+  },
+  {
+    caption: 'Build a PRG with the official SDK',
+    wide: true,
+    lines: [
+      '$ monkey build apps/hands',
+      'monkey: building … (watchface) → fr55 (fr55) with SDK …/connectiq-sdk-mac-9.3.0',
+      'BUILD SUCCESSFUL',
+      'apps/hands/bin/hands.prg',
+    ],
   },
 ];
 
@@ -154,7 +169,7 @@ const HomePage: NextPage = () => (
       primary={{ label: 'Get the CLI', href: '#install' }}
       secondary={{ label: 'See it in action', href: '#demo' }}
       stats={[
-        { value: '9', label: 'CLI commands' },
+        { value: '11', label: 'CLI commands' },
         { value: '2', label: 'editors supported' },
         { value: '0', label: 'runtime dependencies' },
       ]}>
@@ -171,7 +186,7 @@ const HomePage: NextPage = () => (
       <div className="mx-auto w-full max-w-6xl px-5">
         <SectionHead
           title="The monkey CLI"
-          description="format, lint, check, parse, doctor, sdk, device, and project — files or whole directories, with editor-friendly stdin/stdout and JSON/SARIF modes."
+          description="format, lint, check, parse, doctor, sdk, device, project, build, and run — files or whole directories, with editor-friendly stdin/stdout, JSON/SARIF, and SDK build modes."
         />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {DEMO_TERMINALS.map((t) => (

@@ -33,9 +33,10 @@ monkeyc -f monkey.jungle -d <device> -o bin/<package>.prg -y <developer_key> -w
 monkeydo bin/<package>.prg <device>
 ```
 
-The `monkey` tool in this repo is **not** `monkeyc` — it is a formatter and
-linter for Monkey C/Jungle source files. It complements the SDK; it does not
-replace it.
+The `monkey` tool in this repo wraps `monkeyc`/`monkeydo`/`connectiq` for
+builds and simulator runs (`monkey build`, `monkey run`) and adds formatting,
+linting, parsing, and project/SDK/device discovery on top. It orchestrates the
+official SDK; it does not replace it.
 
 ## What this repo provides
 

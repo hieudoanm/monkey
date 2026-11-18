@@ -7,7 +7,12 @@ parsing is intentional — no clap).
 ## Conventions
 
 - Subcommands: `format`, `lint`, `check`, `tokens`, `parse`, `doctor`, `sdk`,
-  `device`, `project`. Keep names stable — editor integrations and CI invoke them.
+  `device`, `project`, `build`, `run`. Keep names stable — editor integrations
+  and CI invoke them.
+- `build`/`run` (`src/build.rs`) orchestrate the official SDK exactly like the
+  editor extensions: `monkeyc -f <jungle> -d <device> -o bin/<name>.prg -y
+  <key> -w`, then `connectiq` + `monkeydo <prg> <device>`. Device selection:
+  `--device` → `MONKEYC_DEVICE` → first manifest `<iq:product>`.
 - `format` default = stdout (rustfmt-style); `--check`/`--write`/`--stdin`
   are the only modes. Exit codes: 0 clean, 1 findings/diffs, 2 usage errors.
 - `check` must remain a superset of `lint` (lint + format drift).

@@ -23,6 +23,8 @@ monkey doctor [--sdk <path>] [--key <path>] [path]
 monkey sdk    list|detect|info
 monkey device list|info <id>
 monkey project info [path]
+monkey build  [--device <id>] [--sdk <path>] [--key <path>] [path]
+monkey run    [--device <id>] [--sdk <path>] [--key <path>] [--no-simulator] [path]
 ```
 
 - `format` — default prints formatted source to stdout; `--check` reports
@@ -38,6 +40,9 @@ monkey project info [path]
 - `sdk` — `list` all SDKs, `detect` the resolved one, `info` on tools/version.
 - `device` — list Connect IQ device profiles or show one device.
 - `project` — `info` shows the discovered project's manifest/jungle details.
+- `build` — compiles `bin/<name>.prg` via the SDK's `monkeyc`.
+- `run` — build + launch `connectiq` simulator + `monkeydo` deploy
+  (`--no-simulator` skips the simulator).
 
 SDK and key resolution mirrors the editor extensions: explicit flag →
 `MONKEYC_SDK_PATH`/`MONKEY_SDK` and `MONKEYC_DEVELOPER_KEY`/`MONKEY_KEY` env

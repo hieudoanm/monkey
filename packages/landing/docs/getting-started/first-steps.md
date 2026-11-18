@@ -25,6 +25,14 @@ project discovery):
 monkey doctor .
 ```
 
+To build a PRG — or build, launch the simulator, and run the app — from the
+terminal:
+
+```bash
+monkey build .   # → bin/<name>.prg
+monkey run .     # build + simulator + monkeydo
+```
+
 See the [CLI reference](../guides/cli-reference.md) for every subcommand and
 flag, and [editor setup](../guides/editor-extensions.md) to wire formatting into
 VS Code or Zed.
