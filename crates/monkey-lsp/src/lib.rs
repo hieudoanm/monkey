@@ -16,6 +16,7 @@ use std::rc::Rc;
 
 use serde_json::{json, Value};
 
+pub mod data_files;
 mod index;
 mod intel;
 mod toybox;
@@ -85,7 +86,23 @@ impl Server {
                             "rangeFormattingProvider": true,
                             "referencesProvider": true,
                             "renameProvider": {"prepareProvider": true},
-                            "signatureHelpProvider": {"triggerCharacters": ["(", ","]}
+                            "signatureHelpProvider": {"triggerCharacters": ["(", ","]},
+                            "documentHighlightProvider": true,
+                            "foldingRangeProvider": true,
+                            "inlayHintProvider": true,
+                            "semanticTokensProvider": {
+                                "legend": {
+                                    "tokenTypes": intel::SEMANTIC_TYPES,
+                                    "tokenModifiers": Vec::<&str>::new()
+                                },
+                                "full": true,
+                                "range": false
+                            },
+                            "callHierarchyProvider": true,
+                            "typeHierarchyProvider": true,
+                            "codeActionProvider": {
+                                "codeActionKinds": ["source.organizeImports", "quickfix", "refactor"]
+                            }
                         },
                         "serverInfo": {"name": "monkey", "version": env!("CARGO_PKG_VERSION")}
                     }
@@ -218,6 +235,89 @@ impl Server {
             }
             "textDocument/prepareRename" => {
                 let result = self.prepare_rename_result(&params);
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
+            "textDocument/documentHighlight" => {
+                let result = self.document_highlight_result(&params);
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
+            "textDocument/foldingRange" => {
+                let result = self
+                    .doc_text(&params)
+                    .filter(|(_, lang, _)| lang != "jungle")
+                    .map(|(_, _, src)| {
+                        json!(intel::folding_ranges(&src)
+                            .iter()
+                            .map(|f| {
+                                let mut o = json!({
+                                    "startLine": f.start_line,
+                                    "endLine": f.end_line,
+                                });
+                                if let Some(k) = f.kind {
+                                    o["kind"] = json!(k);
+                                }
+                                o
+                            })
+                            .collect::<Vec<_>>())
+                    })
+                    .unwrap_or_else(|| json!([]));
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
+            "textDocument/inlayHint" => {
+                let result = self
+                    .doc_text(&params)
+                    .filter(|(_, lang, _)| lang != "jungle")
+                    .map(|(_, _, src)| {
+                        json!(intel::inlay_hints(&src)
+                            .iter()
+                            .map(|(pos, label)| json!({
+                                "position": position_at_byte(&src, *pos),
+                                "label": label,
+                                "kind": 1,
+                                "paddingLeft": false,
+                                "paddingRight": true,
+                            }))
+                            .collect::<Vec<_>>())
+                    })
+                    .unwrap_or_else(|| json!([]));
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
+            "textDocument/semanticTokens/full" | "textDocument/semanticTokens/range" => {
+                // Only full-document is advertised; range requests fall back
+                // to the full result (clients accept supersets).
+                let result = self
+                    .doc_text(&params)
+                    .filter(|(_, lang, _)| lang != "jungle")
+                    .map(|(_, _, src)| json!({"data": intel::semantic_tokens(&src)}))
+                    .unwrap_or_else(|| json!({"data": []}));
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
+            "textDocument/prepareCallHierarchy" => {
+                let result = self.prepare_call_hierarchy(&params);
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
+            "callHierarchy/incomingCalls" => {
+                let result = self.incoming_calls(&params);
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
+            "callHierarchy/outgoingCalls" => {
+                let result = self.outgoing_calls(&params);
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
+            "textDocument/prepareTypeHierarchy" => {
+                let result = self.prepare_type_hierarchy(&params);
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
+            "typeHierarchy/superTypes" => {
+                let result = self.super_types(&params);
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
+            "typeHierarchy/subTypes" => {
+                let result = self.sub_types(&params);
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
+            "textDocument/codeAction" => {
+                let result = self.code_actions(&params);
                 out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
             }
             _ if is_request => {
@@ -650,6 +750,401 @@ impl Server {
         })
     }
 
+    /// `textDocument/documentHighlight` — uses of the symbol under the
+    /// cursor in the current document only.
+    fn document_highlight_result(&mut self, params: &Value) -> Value {
+        let Some((uri, lang, src)) = self.doc_text(params) else {
+            return json!([]);
+        };
+        if lang == "jungle" {
+            return json!([]);
+        }
+        let Some(off) = self.offset_param(params, &src) else {
+            return json!([]);
+        };
+        let Some((word, _, _)) = self.word_at(&src, off) else {
+            return json!([]);
+        };
+        let idx = self.project_index();
+        let target = idx
+            .find_decls(&word)
+            .into_iter()
+            .find(|(f, _)| f.uri == uri)
+            .or_else(|| idx.find_decls(&word).into_iter().next());
+        let (member, parent, kind) = target
+            .map(|(_, d)| {
+                (
+                    matches!(d.kind, "method" | "field" | "enum-member"),
+                    d.parent.clone(),
+                    d.kind,
+                )
+            })
+            .unwrap_or((false, None, ""));
+        let is_local = matches!(kind, "variable" | "param");
+
+        let mut out: Vec<Value> = Vec::new();
+        let mut push = |span: Span, k: i64| {
+            out.push(json!({
+                "range": {
+                    "start": position_at_byte(&src, span.start as usize),
+                    "end": position_at_byte(&src, span.end as usize),
+                },
+                "kind": k,
+            }));
+        };
+        if is_local {
+            for (_, d) in idx.find_decls_in(&uri, &word) {
+                if !matches!(d.kind, "variable" | "param") {
+                    continue;
+                }
+                push(d.name_span, 3);
+                let scope = intel::enclosing_fn_span(&src, d.name_span);
+                for span in intel::uses_in_mode(&src, &word, false, scope, None) {
+                    push(span, 1);
+                }
+            }
+        } else {
+            let cs = if member {
+                Some(
+                    parent
+                        .as_deref()
+                        .and_then(|p| intel::class_span(&src, p))
+                        .unwrap_or(Span::new(0, 0)),
+                )
+            } else {
+                None
+            };
+            for span in intel::uses_in_mode(&src, &word, member, cs, parent.as_deref()) {
+                push(span, 1);
+            }
+            for (_, d) in idx.find_decls_in(&uri, &word) {
+                push(d.name_span, 3);
+            }
+        }
+        out.sort_by(|a, b| {
+            let ka = format!(
+                "{}{}",
+                a["range"]["start"]["line"], a["range"]["start"]["character"]
+            );
+            let kb = format!(
+                "{}{}",
+                b["range"]["start"]["line"], b["range"]["start"]["character"]
+            );
+            ka.cmp(&kb)
+        });
+        out.dedup_by(|a, b| a["range"] == b["range"]);
+        json!(out)
+    }
+
+    // ---------- call hierarchy ----------
+
+    fn call_item(f: &intel::FnDecl, uri: &str, src: &str) -> Value {
+        let label = match &f.parent {
+            Some(p) => format!("{}.{}", p, f.name),
+            None => f.name.clone(),
+        };
+        json!({
+            "name": label,
+            "kind": if f.parent.is_some() { 6 } else { 12 },
+            "uri": uri,
+            "range": {
+                "start": position_at_byte(src, f.span.start as usize),
+                "end": position_at_byte(src, f.span.end as usize),
+            },
+            "selectionRange": {
+                "start": position_at_byte(src, f.name_span.start as usize),
+                "end": position_at_byte(src, f.name_span.end as usize),
+            },
+            "data": {"uri": uri, "name": f.name, "parent": f.parent},
+        })
+    }
+
+    /// Locate the `FnDecl` described by a CallHierarchyItem's `data`.
+    fn find_fn_decl(&mut self, data: &Value) -> Option<(String, intel::FnDecl)> {
+        let uri = data.get("uri")?.as_str()?;
+        let name = data.get("name")?.as_str()?;
+        let parent = data.get("parent").and_then(Value::as_str);
+        let idx = self.project_index();
+        for f in &idx.files {
+            if f.uri != uri {
+                continue;
+            }
+            if let Some(fd) = intel::function_decls(&f.src)
+                .into_iter()
+                .find(|d| d.name == name && d.parent.as_deref() == parent)
+            {
+                return Some((f.uri.clone(), fd));
+            }
+        }
+        None
+    }
+
+    fn prepare_call_hierarchy(&mut self, params: &Value) -> Value {
+        let Some((uri, lang, src)) = self.doc_text(params) else {
+            return Value::Null;
+        };
+        if lang == "jungle" {
+            return Value::Null;
+        }
+        let Some(off) = self.offset_param(params, &src) else {
+            return Value::Null;
+        };
+        let decls = intel::function_decls(&src);
+        // On a declaration name → that decl. Otherwise resolve the word
+        // under the cursor as a callee project-wide (call sites), falling
+        // back to the enclosing function.
+        if let Some(f) = decls
+            .iter()
+            .find(|d| off >= d.name_span.start as usize && off < d.name_span.end as usize)
+        {
+            return json!([Self::call_item(f, &uri, &src)]);
+        }
+        if let Some((word, _, _)) = self.word_at(&src, off) {
+            let idx = self.project_index();
+            for (f, d) in idx.find_decls(&word) {
+                if !matches!(d.kind, "function" | "method") {
+                    continue;
+                }
+                if let Some(fd) = intel::function_decls(&f.src)
+                    .into_iter()
+                    .find(|x| x.name == d.name && x.parent.as_deref() == d.parent.as_deref())
+                {
+                    return json!([Self::call_item(&fd, &f.uri, &f.src)]);
+                }
+            }
+        }
+        if let Some(f) = intel::function_at(&src, off) {
+            return json!([Self::call_item(&f, &uri, &src)]);
+        }
+        Value::Null
+    }
+
+    fn incoming_calls(&mut self, params: &Value) -> Value {
+        let Some(item) = params.get("item") else {
+            return json!([]);
+        };
+        let Some(data) = item.get("data") else {
+            return json!([]);
+        };
+        let name = data.get("name").and_then(Value::as_str).unwrap_or("");
+        let parent = data.get("parent").and_then(Value::as_str);
+        let member = parent.is_some();
+        let idx = self.project_index();
+        let mut out: Vec<Value> = Vec::new();
+        let mut seen = std::collections::BTreeSet::new();
+        for f in &idx.files {
+            let cs = if member {
+                Some(
+                    parent
+                        .and_then(|p| intel::class_span(&f.src, p))
+                        .unwrap_or(Span::new(0, 0)),
+                )
+            } else {
+                None
+            };
+            for span in intel::uses_in_mode(&f.src, name, member, cs, parent) {
+                let Some(caller) = intel::function_at(&f.src, span.start as usize) else {
+                    continue;
+                };
+                // Skip the function itself (recursive self-edge is fine to
+                // keep, but the decl-site "use" isn't a call).
+                if seen.insert((f.uri.clone(), caller.name_span.start)) {
+                    out.push(json!({
+                        "from": Self::call_item(&caller, &f.uri, &f.src),
+                        "fromRanges": [{
+                            "start": position_at_byte(&f.src, span.start as usize),
+                            "end": position_at_byte(&f.src, span.end as usize),
+                        }],
+                    }));
+                }
+            }
+        }
+        json!(out)
+    }
+
+    fn outgoing_calls(&mut self, params: &Value) -> Value {
+        let Some(item) = params.get("item") else {
+            return json!([]);
+        };
+        let Some(data) = item.get("data") else {
+            return json!([]);
+        };
+        let Some((uri, fdecl)) = self.find_fn_decl(data) else {
+            return json!([]);
+        };
+        let idx = self.project_index();
+        let Some(file) = idx.files.iter().find(|f| f.uri == uri) else {
+            return json!([]);
+        };
+        let calls = intel::calls_in_function(&file.src, fdecl.span);
+        let mut out: Vec<Value> = Vec::new();
+        let mut seen = std::collections::BTreeSet::new();
+        for (callee, span) in calls {
+            for (f, d) in idx.find_decls(&callee) {
+                if !matches!(d.kind, "function" | "method") {
+                    continue;
+                }
+                let Some(fd) = intel::function_decls(&f.src)
+                    .into_iter()
+                    .find(|x| x.name == d.name && x.parent.as_deref() == d.parent.as_deref())
+                else {
+                    continue;
+                };
+                if seen.insert((f.uri.clone(), fd.name_span.start)) {
+                    out.push(json!({
+                        "to": Self::call_item(&fd, &f.uri, &f.src),
+                        "fromRanges": [{
+                            "start": position_at_byte(&file.src, span.start as usize),
+                            "end": position_at_byte(&file.src, span.end as usize),
+                        }],
+                    }));
+                }
+            }
+        }
+        json!(out)
+    }
+
+    // ---------- type hierarchy ----------
+
+    fn type_item(uri: &str, src: &str, name: &str) -> Option<Value> {
+        let span = intel::class_span(src, name)?;
+        // Name span: find the class name identifier inside the span.
+        let name_off = src[span.start as usize..span.end as usize]
+            .find(name)
+            .map(|i| span.start as usize + i)
+            .unwrap_or(span.start as usize);
+        Some(json!({
+            "name": name,
+            "kind": 5,
+            "uri": uri,
+            "range": {
+                "start": position_at_byte(src, span.start as usize),
+                "end": position_at_byte(src, span.end as usize),
+            },
+            "selectionRange": {
+                "start": position_at_byte(src, name_off),
+                "end": position_at_byte(src, name_off + name.len()),
+            },
+            "data": {"uri": uri, "name": name},
+        }))
+    }
+
+    fn prepare_type_hierarchy(&mut self, params: &Value) -> Value {
+        let Some((_, lang, src)) = self.doc_text(params) else {
+            return Value::Null;
+        };
+        if lang == "jungle" {
+            return Value::Null;
+        }
+        let Some(off) = self.offset_param(params, &src) else {
+            return Value::Null;
+        };
+        let Some((word, _, _)) = self.word_at(&src, off) else {
+            return Value::Null;
+        };
+        let idx = self.project_index();
+        for (f, d) in idx.find_decls(&word) {
+            if d.kind != "class" {
+                continue;
+            }
+            if let Some(item) = Self::type_item(&f.uri, &f.src, &d.name) {
+                return json!([item]);
+            }
+        }
+        Value::Null
+    }
+
+    fn super_types(&mut self, params: &Value) -> Value {
+        let Some(item) = params.get("item") else {
+            return json!([]);
+        };
+        let Some(name) = item
+            .pointer("/data/name")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+        else {
+            return json!([]);
+        };
+        let idx = self.project_index();
+        let mut out = Vec::new();
+        let mut seen = std::collections::BTreeSet::new();
+        let mut cur = name;
+        for _ in 0..32 {
+            if !seen.insert(cur.clone()) {
+                break;
+            }
+            // Find the file declaring `cur` and its superclass.
+            let next = idx.find_decls(&cur).into_iter().find_map(|(f, d)| {
+                if d.kind != "class" {
+                    return None;
+                }
+                intel::class_superclass(&f.src, &d.name).map(|s| (f, s))
+            });
+            let Some((f, sup)) = next else { break };
+            let Some(it) = Self::type_item(&f.uri, &f.src, &sup) else {
+                break;
+            };
+            // Resolve which file actually declares `sup` for a stable uri.
+            let resolved = idx
+                .find_decls(&sup)
+                .into_iter()
+                .find(|(_, d)| d.kind == "class")
+                .and_then(|(sf, _)| Self::type_item(&sf.uri, &sf.src, &sup))
+                .unwrap_or(it);
+            out.push(resolved);
+            cur = sup;
+        }
+        json!(out)
+    }
+
+    fn sub_types(&mut self, params: &Value) -> Value {
+        let Some(item) = params.get("item") else {
+            return json!([]);
+        };
+        let Some(name) = item
+            .pointer("/data/name")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+        else {
+            return json!([]);
+        };
+        let idx = self.project_index();
+        let mut out = Vec::new();
+        let mut seen = std::collections::BTreeSet::new();
+        for f in &idx.files {
+            for (cls, sup) in intel::class_inheritance(&f.src) {
+                if sup.as_deref() == Some(name.as_str())
+                    && seen.insert((f.uri.clone(), cls.clone()))
+                {
+                    if let Some(it) = Self::type_item(&f.uri, &f.src, &cls) {
+                        out.push(it);
+                    }
+                }
+            }
+        }
+        json!(out)
+    }
+
+    // ---------- code actions ----------
+
+    fn code_actions(&self, params: &Value) -> Value {
+        let Some((uri, lang, src)) = self.doc_text(params) else {
+            return json!([]);
+        };
+        if lang == "jungle" {
+            return json!([]);
+        }
+        let mut actions = Vec::new();
+        if let Some(edit) = sort_imports_edit(&uri, &src) {
+            actions.push(json!({
+                "title": "Sort imports",
+                "kind": "source.organizeImports",
+                "edit": {"changes": {uri.clone(): [edit]}},
+            }));
+        }
+        json!(actions)
+    }
+
     /// Base identifier of a `X.` member-access prefix ending at `offset`,
     /// e.g. `view.` → `view`, `this.` → `this`.
     fn member_base(src: &str, offset: usize) -> Option<String> {
@@ -878,7 +1373,7 @@ fn workspace_root(params: &Value) -> Option<PathBuf> {
 }
 
 fn publish(uri: &str, lang: &str, src: &str) -> Value {
-    let diagnostics = lint_diagnostics(lang, src);
+    let diagnostics = lint_diagnostics(uri, lang, src);
     json!({
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
@@ -889,7 +1384,22 @@ fn publish(uri: &str, lang: &str, src: &str) -> Value {
     })
 }
 
-fn lint_diagnostics(lang: &str, src: &str) -> Vec<Value> {
+fn lint_diagnostics(uri: &str, lang: &str, src: &str) -> Vec<Value> {
+    // Resource/data files get structural checks regardless of language id —
+    // editors may send them as `json`, `xml`, or `plaintext`.
+    let lower = uri.to_ascii_lowercase();
+    if lower.ends_with(".mss") {
+        return data_files::check_mss(src)
+            .iter()
+            .map(|d| to_lsp(src, d))
+            .collect();
+    }
+    if lower.ends_with(".xml") {
+        return data_files::check_xml(src)
+            .iter()
+            .map(|d| to_lsp(src, d))
+            .collect();
+    }
     let is_jungle = lang == "jungle";
     let mut diags = if is_jungle {
         let mut d = Vec::new();
@@ -953,6 +1463,72 @@ fn apply_text_edit(
     out.push_str(new_text);
     out.push_str(&src[end..]);
     Some(out)
+}
+
+/// Workspace edit that sorts a contiguous block of `import X.Y;` lines.
+/// Returns `None` when there are fewer than 2 imports or the block contains
+/// non-import content (comments/blank lines) we can't safely reorder.
+fn sort_imports_edit(_uri: &str, src: &str) -> Option<Value> {
+    // (line_start_byte, line_end_byte_exclusive_of_newline, import_key)
+    let mut lines: Vec<(usize, usize, String)> = Vec::new();
+    let mut pos = 0usize;
+    for line in src.split_inclusive('\n') {
+        let content = line.strip_suffix('\n').unwrap_or(line);
+        let trimmed = content.trim();
+        if trimmed.starts_with("import ") && trimmed.ends_with(';') {
+            let key = trimmed
+                .trim_start_matches("import ")
+                .trim_end_matches(';')
+                .trim()
+                .to_string();
+            lines.push((pos, pos + content.len(), key));
+        } else if !(trimmed.is_empty() || trimmed.starts_with("//")) {
+            // Non-import, non-comment content ends the import region.
+            break;
+        }
+        pos += line.len();
+    }
+    if lines.len() < 2 {
+        return None;
+    }
+    // All lines between the first and last import must themselves be imports
+    // — otherwise reordering would move comments/blank separators around.
+    let first = lines.first()?;
+    let last = lines.last()?;
+    let block = &src[first.0..last.1];
+    let import_count = block
+        .lines()
+        .filter(|l| {
+            let t = l.trim();
+            t.starts_with("import ") && t.ends_with(';')
+        })
+        .count();
+    if import_count != lines.len() {
+        return None;
+    }
+    let mut sorted = lines.clone();
+    sorted.sort_by(|a, b| a.2.cmp(&b.2));
+    if sorted.iter().zip(&lines).all(|(a, b)| a.2 == b.2) {
+        return None; // already sorted
+    }
+    // Rebuild the block: sorted import lines joined by newlines.
+    let mut new_text = String::new();
+    for (i, (_, _, _)) in sorted.iter().enumerate() {
+        if i > 0 {
+            new_text.push('\n');
+        }
+        // Re-emit the full original line text (preserves leading ws).
+        let line_start = sorted[i].0;
+        let line_end = sorted[i].1;
+        new_text.push_str(src[line_start..line_end].trim_end());
+    }
+    Some(json!({
+        "range": {
+            "start": position_at_byte(src, first.0),
+            "end": position_at_byte(src, last.1),
+        },
+        "newText": new_text,
+    }))
 }
 
 /// UTF-8 byte offset → LSP position (0-based line, UTF-16 character).

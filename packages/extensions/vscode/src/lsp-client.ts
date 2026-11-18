@@ -28,6 +28,10 @@ export async function startLanguageClient(
         { scheme: 'file', language: 'jungle' },
         { scheme: 'untitled', language: 'monkeyc' },
         { scheme: 'untitled', language: 'jungle' },
+        // Resource data files get structural diagnostics (JSON/XML
+        // well-formedness) from the same server.
+        { scheme: 'file', pattern: '**/*.mss' },
+        { scheme: 'file', pattern: '**/resources/**/*.xml' },
       ],
       synchronize: {
         configurationSection: 'monkeyC',

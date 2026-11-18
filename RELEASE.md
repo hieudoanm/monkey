@@ -1,6 +1,36 @@
 ## Monkey C — latest build
 
-Language support and tooling for Garmin Connect IQ Monkey C and Jungle:
+Language support and tooling for Garmin Connect IQ Monkey C and Jungle.
+
+### Install
+
+One command installs everything (CLI into `~/.local/bin`, VS Code extension
+via `code --install-extension`, Zed extension source into
+`~/.local/share/monkey/zed-extension`):
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/hieudoanm/monkey/master/scripts/install.sh)          # all three
+bash <(curl -fsSL https://raw.githubusercontent.com/hieudoanm/monkey/master/scripts/install.sh) --cli-only
+bash <(curl -fsSL https://raw.githubusercontent.com/hieudoanm/monkey/master/scripts/install.sh) --editor-only
+bash <(curl -fsSL https://raw.githubusercontent.com/hieudoanm/monkey/master/scripts/install.sh) --zed-only
+```
+
+Or install each piece manually from the assets below:
+
+**CLI:** download the `cli-monkey-*` binary for your platform and put it on
+your `PATH` (e.g. `~/.local/bin`). `monkey doctor` verifies your SDK, developer
+key, and project setup.
+
+**VS Code:** download `extension-monkey-c.vsix` and install via
+**Extensions → Install from VSIX**. Lint diagnostics require the `monkey` CLI
+on `PATH` (configurable via `monkeyC.cliPath`).
+
+**Zed:** the extension is declarative — clone the repo and run
+`./scripts/install.sh` inside `packages/extensions/zed`, or use the
+`extension-monkey-c-zed.zip` asset as a source snapshot. The lint/check tasks
+also need the `monkey` CLI on `PATH`.
+
+### What's in this release
 
 - `monkey` — standalone CLI for `*.mc`/`*.jungle` files. Subcommands:
   `format`, `lint`, `check`, `parse`, `tokens`, `doctor`, `sdk`, `device`,
@@ -27,21 +57,6 @@ Language support and tooling for Garmin Connect IQ Monkey C and Jungle:
   formatter, lint/check tasks, theme, icon theme). Install via `zed: install`
   from a local checkout or the extension registry.
 - Companion Zed extension lives in the same repo.
-
-### Install
-
-**CLI:** download the `cli-monkey-*` binary for your platform and put it on
-your `PATH` (e.g. `~/.local/bin`). `monkey doctor` verifies your SDK, developer
-key, and project setup.
-
-**VS Code:** download `extension-monkey-c.vsix` from the assets below and install via
-**Extensions → Install from VSIX**. Lint diagnostics require the `monkey` CLI
-on `PATH` (configurable via `monkeyC.cliPath`).
-
-**Zed:** the extension is declarative — clone the repo and run
-`./scripts/install.sh` inside `packages/extensions/zed`, or use the
-`extension-monkey-c-zed.zip` asset as a source snapshot. The lint/check tasks
-also need the `monkey` CLI on `PATH`.
 
 ### Build from source
 

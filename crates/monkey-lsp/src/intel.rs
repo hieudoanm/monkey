@@ -1675,6 +1675,432 @@ fn active_parameter(src: &str, call_span: Span, offset: usize) -> usize {
     commas
 }
 
+// ---------- folding ranges ----------
+
+/// A foldable region: 0-based start/end lines plus optional kind
+/// (`"comment"`).
+pub struct FoldRange {
+    pub start_line: u64,
+    pub end_line: u64,
+    pub kind: Option<&'static str>,
+}
+
+/// Brace pairs, multi-line block comments, and runs of consecutive line
+/// comments become foldable ranges.
+pub fn folding_ranges(src: &str) -> Vec<FoldRange> {
+    use monkey_syntax::TokenKind;
+    let tokens: Vec<_> = monkey_syntax::lex(src)
+        .into_iter()
+        .filter(|t| t.kind != TokenKind::Eof)
+        .collect();
+    let mut out = Vec::new();
+    let mut brace_stack: Vec<u32> = Vec::new();
+    let mut i = 0;
+    while i < tokens.len() {
+        let t = &tokens[i];
+        match t.kind {
+            TokenKind::Punct if t.text == "{" => brace_stack.push(t.line),
+            TokenKind::Punct if t.text == "}" => {
+                if let Some(open) = brace_stack.pop() {
+                    let (s, e) = (open as u64 - 1, t.line as u64 - 1);
+                    if e > s {
+                        out.push(FoldRange {
+                            start_line: s,
+                            end_line: e,
+                            kind: None,
+                        });
+                    }
+                }
+            }
+            TokenKind::BlockComment => {
+                let start = t.line as u64 - 1;
+                let end = start + t.text.matches('\n').count() as u64;
+                if end > start {
+                    out.push(FoldRange {
+                        start_line: start,
+                        end_line: end,
+                        kind: Some("comment"),
+                    });
+                }
+            }
+            TokenKind::LineComment => {
+                // Fold runs of 2+ consecutive comment lines (no blank lines).
+                let mut j = i;
+                let mut last_line = t.line;
+                while j + 1 < tokens.len() {
+                    let n = &tokens[j + 1];
+                    if n.kind == TokenKind::LineComment
+                        && n.line == last_line + 1
+                        && n.newlines_before <= 1
+                    {
+                        j += 1;
+                        last_line = n.line;
+                    } else {
+                        break;
+                    }
+                }
+                if j > i {
+                    out.push(FoldRange {
+                        start_line: t.line as u64 - 1,
+                        end_line: last_line as u64 - 1,
+                        kind: Some("comment"),
+                    });
+                    i = j;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    out
+}
+
+// ---------- inlay hints ----------
+
+/// `(byte_pos, label)` pairs for `textDocument/inlayHint`: inferred type
+/// annotations shown after un-annotated `var`/`field` names.
+pub fn inlay_hints(src: &str) -> Vec<(usize, String)> {
+    let mut out = Vec::new();
+    for d in collect_decls(src) {
+        if !matches!(d.kind, "variable" | "field") {
+            continue;
+        }
+        let Some(ty) = d.type_name else { continue };
+        if ty.is_empty() {
+            continue;
+        }
+        // Skip declarations that already carry an `as Type` annotation —
+        // the text between the name and `=`/`;`/newline would contain it.
+        let rest = &src[d.name_span.end as usize..];
+        let seg_end = rest
+            .find(['=', ';', '\n'])
+            .unwrap_or_else(|| rest.len().min(200));
+        if rest[..seg_end].contains(" as ") {
+            continue;
+        }
+        out.push((d.name_span.end as usize, format!(": {}", ty)));
+    }
+    out.sort_by_key(|(p, _)| *p);
+    out.dedup_by_key(|(p, _)| *p);
+    out
+}
+
+// ---------- semantic tokens ----------
+
+/// Token-type legend for `textDocument/semanticTokens` (standard order).
+pub const SEMANTIC_TYPES: &[&str] = &[
+    "namespace",
+    "type",
+    "class",
+    "enum",
+    "interface",
+    "struct",
+    "typeParameter",
+    "parameter",
+    "variable",
+    "property",
+    "enumMember",
+    "event",
+    "function",
+    "method",
+    "macro",
+    "keyword",
+    "modifier",
+    "comment",
+    "string",
+    "number",
+    "regexp",
+    "operator",
+    "decorator",
+];
+
+fn utf16_len(s: &str) -> usize {
+    s.chars().map(char::len_utf16).sum()
+}
+
+fn semantic_type_index(kind: &str) -> usize {
+    match kind {
+        "class" => 2,
+        "enum" => 3,
+        "function" => 12,
+        "method" => 13,
+        "field" => 9,
+        "enum-member" => 10,
+        "param" => 7,
+        _ => 8, // variable
+    }
+}
+
+/// Flattened, delta-encoded semantic token data for `src`.
+/// Legend: [`SEMANTIC_TYPES`]; no token modifiers are emitted.
+pub fn semantic_tokens(src: &str) -> Vec<i32> {
+    use monkey_syntax::TokenKind;
+    // Declaration kinds give identifiers their semantic type; first decl
+    // wins on name collisions.
+    let mut kind_map: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for d in collect_decls(src) {
+        kind_map
+            .entry(d.name.clone())
+            .or_insert_with(|| semantic_type_index(d.kind));
+    }
+    const MODIFIERS: &[&str] = &["public", "private", "protected", "hidden", "final"];
+    const SKIP_PUNCT: &[&str] = &[".", ",", ";", "(", ")", "[", "]", "{", "}"];
+
+    // (line0, col_utf16, len_utf16, type_idx) segments in source order.
+    let mut segs: Vec<(u64, u64, u64, usize)> = Vec::new();
+    for t in monkey_syntax::lex(src) {
+        if t.kind == TokenKind::Eof {
+            continue;
+        }
+        let ty = match t.kind {
+            TokenKind::Keyword => {
+                if MODIFIERS.contains(&t.text.as_str()) {
+                    16 // modifier
+                } else {
+                    15 // keyword
+                }
+            }
+            TokenKind::Number => 19,
+            TokenKind::Str | TokenKind::CharLit => 18,
+            TokenKind::LineComment | TokenKind::BlockComment => 17,
+            TokenKind::Ident => kind_map.get(&t.text).copied().unwrap_or_else(|| {
+                if t.text.chars().next().is_some_and(|c| c.is_uppercase()) {
+                    2 // class
+                } else {
+                    8 // variable
+                }
+            }),
+            TokenKind::Punct => {
+                if SKIP_PUNCT.contains(&t.text.as_str()) {
+                    continue;
+                }
+                21 // operator
+            }
+            TokenKind::Eof => continue,
+        };
+        if t.text.contains('\n') {
+            // Multi-line tokens (block comments) split per line.
+            let mut byte_off = 0usize;
+            for part in t.text.split('\n') {
+                if !part.is_empty() {
+                    let pos = position_at_byte(src, t.start + byte_off);
+                    segs.push((
+                        pos["line"].as_u64().unwrap_or(0),
+                        pos["character"].as_u64().unwrap_or(0),
+                        utf16_len(part) as u64,
+                        ty,
+                    ));
+                }
+                byte_off += part.len() + 1;
+            }
+        } else {
+            let pos = position_at_byte(src, t.start);
+            segs.push((
+                pos["line"].as_u64().unwrap_or(0),
+                pos["character"].as_u64().unwrap_or(0),
+                utf16_len(&t.text) as u64,
+                ty,
+            ));
+        }
+    }
+    // Delta-encode.
+    let mut data = Vec::with_capacity(segs.len() * 5);
+    let (mut prev_line, mut prev_col) = (0u64, 0u64);
+    for (line, col, len, ty) in segs {
+        if line == prev_line {
+            data.push(0);
+            data.push((col - prev_col) as i32);
+        } else {
+            data.push((line - prev_line) as i32);
+            data.push(col as i32);
+        }
+        data.push(len as i32);
+        data.push(ty as i32);
+        data.push(0); // no modifiers
+        prev_line = line;
+        prev_col = col;
+    }
+    data
+}
+
+// ---------- call hierarchy ----------
+
+/// A function/method declaration with its body span and parent class.
+#[derive(Clone)]
+pub struct FnDecl {
+    pub name: String,
+    pub parent: Option<String>,
+    pub span: Span,
+    pub name_span: Span,
+}
+
+/// Every function/method declaration in `src` (module members included).
+pub fn function_decls(src: &str) -> Vec<FnDecl> {
+    let parsed = monkey_parser::parse(src);
+    struct C {
+        out: Vec<FnDecl>,
+        stack: Vec<String>,
+    }
+    impl Visitor for C {
+        fn visit_class(&mut self, d: &ClassDecl) {
+            self.stack.push(d.name.text.clone());
+            for a in &d.annotations {
+                self.visit_annotation(a);
+            }
+            if let Some(s) = &d.superclass {
+                self.visit_type(s);
+            }
+            for m in &d.members {
+                self.visit_class_member(m);
+            }
+            self.stack.pop();
+        }
+        fn visit_function(&mut self, f: &FunctionDecl) {
+            self.out.push(FnDecl {
+                name: f.name.text.clone(),
+                parent: self.stack.last().cloned(),
+                span: f.span,
+                name_span: f.name.span,
+            });
+        }
+    }
+    let mut c = C {
+        out: Vec::new(),
+        stack: Vec::new(),
+    };
+    c.visit_source_file(&parsed.file);
+    c.out
+}
+
+/// Innermost function whose span contains `offset`, if any.
+pub fn function_at(src: &str, offset: usize) -> Option<FnDecl> {
+    function_decls(src)
+        .into_iter()
+        .filter(|f| offset >= f.span.start as usize && offset < f.span.end as usize)
+        .min_by_key(|f| f.span.end - f.span.start)
+}
+
+/// `(callee_name, call_span)` for every call inside the function at
+/// `fn_span` — used for outgoing call-hierarchy edges.
+pub fn calls_in_function(src: &str, fn_span: Span) -> Vec<(String, Span)> {
+    let parsed = monkey_parser::parse(src);
+    struct C {
+        fn_span: Span,
+        calls: Vec<(String, Span)>,
+    }
+    impl Visitor for C {
+        fn visit_expr(&mut self, e: &Expr) {
+            if e.span().start >= self.fn_span.start && e.span().end <= self.fn_span.end {
+                if let Expr::Call { callee, .. } = e {
+                    self.calls.push((callee_name(callee), e.span()));
+                }
+            }
+            // Recurse — same traversal as the default visit_expr.
+            match e {
+                Expr::Missing { .. }
+                | Expr::Literal(_)
+                | Expr::This { .. }
+                | Expr::Super { .. }
+                | Expr::Ident(_)
+                | Expr::Path { .. } => {}
+                Expr::Call { callee, args, .. } => {
+                    self.visit_expr(callee);
+                    for a in args {
+                        self.visit_expr(a);
+                    }
+                }
+                Expr::Member { object, .. } => self.visit_expr(object),
+                Expr::Index { object, index, .. } => {
+                    self.visit_expr(object);
+                    self.visit_expr(index);
+                }
+                Expr::Unary { expr, .. }
+                | Expr::Postfix { expr, .. }
+                | Expr::Paren { expr, .. } => self.visit_expr(expr),
+                Expr::Binary { left, right, .. }
+                | Expr::Assign {
+                    target: left,
+                    value: right,
+                    ..
+                } => {
+                    self.visit_expr(left);
+                    self.visit_expr(right);
+                }
+                Expr::Ternary {
+                    cond, then, else_, ..
+                } => {
+                    self.visit_expr(cond);
+                    self.visit_expr(then);
+                    self.visit_expr(else_);
+                }
+                Expr::New { type_, args, .. } => {
+                    self.visit_type(type_);
+                    for a in args {
+                        self.visit_expr(a);
+                    }
+                }
+                Expr::Cast { expr, type_, .. } => {
+                    self.visit_expr(expr);
+                    self.visit_type(type_);
+                }
+                Expr::Array { elems, .. } => {
+                    for el in elems {
+                        self.visit_expr(el);
+                    }
+                }
+                Expr::Dict { entries, .. } => {
+                    for (k, v) in entries {
+                        self.visit_expr(k);
+                        self.visit_expr(v);
+                    }
+                }
+            }
+        }
+    }
+    let mut c = C {
+        fn_span,
+        calls: Vec::new(),
+    };
+    c.visit_source_file(&parsed.file);
+    c.calls.sort_by_key(|(_, s)| s.start);
+    c.calls
+}
+
+/// `(class_name, superclass_name)` pairs for every class in `src`.
+pub fn class_inheritance(src: &str) -> Vec<(String, Option<String>)> {
+    let parsed = monkey_parser::parse(src);
+    let mut out = Vec::new();
+    fn walk(items: &[Item], out: &mut Vec<(String, Option<String>)>) {
+        for i in items {
+            match i {
+                Item::Class(c) => {
+                    out.push((
+                        c.name.text.clone(),
+                        c.superclass.as_ref().and_then(type_name_of),
+                    ));
+                    for m in &c.members {
+                        if let ClassMember::Class(inner) = m {
+                            walk(&[Item::Class((**inner).clone())], out);
+                        }
+                    }
+                }
+                Item::Module(m) => walk(&m.members, out),
+                _ => {}
+            }
+        }
+    }
+    walk(&parsed.file.items, &mut out);
+    out
+}
+
+/// Superclass name of `class_name` in `src`, if declared there.
+pub fn class_superclass(src: &str, class_name: &str) -> Option<String> {
+    class_inheritance(src)
+        .into_iter()
+        .find(|(n, _)| n == class_name)
+        .and_then(|(_, s)| s)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
