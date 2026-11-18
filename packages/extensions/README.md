@@ -9,7 +9,18 @@
 - Built-in document formatting for Monkey C and Jungle (`Format Document` / `Monkey C: Format Document`).
 - Monkey C dark theme and file icon theme.
 
-It adapts editor-facing Jungle grammar/language patterns from the official `garmin.monkey-c` extension and adds formatting, but it does not implement Garmin SDK build/run/test/debug, manifest tooling, or the proprietary language server. For full Connect IQ workflows, use the official [Monkey C extension](https://marketplace.visualstudio.com/items?itemName=garmin.monkey-c) with the Connect IQ SDK.
+It adapts editor-facing Jungle grammar/language patterns from the official
+`garmin.monkey-c` extension and adds formatting.
+
+It intentionally does **not** include:
+
+- Garmin SDK build/run/test/debug
+- Manifest tooling
+- The proprietary language server
+
+For full Connect IQ workflows, use the official
+[Monkey C extension](https://marketplace.visualstudio.com/items?itemName=garmin.monkey-c)
+with the Connect IQ SDK.
 
 **Work With**: `Cursor`, `Google Antigravity`, `VSCodium`, `Windsurf`
 
@@ -24,6 +35,12 @@ See [`extensions/vscode/README.md`](extensions/vscode/README.md) for details and
 - Monkey C dark theme and file icon theme.
 - `Monkey C: Runtime Preview` / `Monkey C: Build PRG` tasks backed by `monkey-c-preview`.
 
-Zed has no TextMate grammar support and no extension command API, so formatting is configured as an external formatter and the runtime preview is a CLI/task. Breakpoint contributions and the proprietary Garmin language server/debugger are not available.
+Zed constraints and equivalents:
+
+- No TextMate grammar support — Tree-sitter languages instead.
+- No extension command API — formatting is an external formatter.
+- No breakpoint contributions.
+- The runtime preview is a CLI/task (`monkey-c-preview`).
+- The proprietary Garmin language server/debugger is not available.
 
 See [`extensions/zed/README.md`](extensions/zed/README.md) for installation, formatter settings, task usage, and the vendored Jungle grammar requirement.

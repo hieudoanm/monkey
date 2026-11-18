@@ -1,10 +1,16 @@
 # CLI reference
 
-The `monkey` binary is a thin wrapper over the `monkey-*` crates: `monkey-core`
-(spans/diagnostics), `monkey-syntax` (lexer), `monkey-parser` (AST),
-`monkey-formatter`, `monkey-linter`, `monkey-project` (jungle/manifest), and
-`monkey-sdk` (SDK/key/device discovery). It has no runtime dependencies beyond
-those crates.
+The `monkey` binary is a thin wrapper over the `monkey-*` crates:
+
+- `monkey-core` — spans/diagnostics
+- `monkey-syntax` — lexer
+- `monkey-parser` — AST
+- `monkey-formatter`
+- `monkey-linter`
+- `monkey-project` — jungle/manifest
+- `monkey-sdk` — SDK/key/device discovery
+
+It has no runtime dependencies beyond those crates.
 
 ```text
 monkey <command> [options] [paths...]
@@ -35,29 +41,41 @@ monkey lint --stdin [label]   # source from stdin → JSON on stdout
 monkey lint --serve           # persistent lint server (editor integrations)
 ```
 
-`--stdin` reads source from stdin and always emits a JSON diagnostics array
-(SARIF with `--sarif`) — used by editor integrations to lint unsaved buffers.
+`--stdin` behavior:
+
+- Reads source from stdin.
+- Always emits a JSON diagnostics array (SARIF with `--sarif`).
+- Used by editor integrations to lint unsaved buffers.
+
 The optional `label` (e.g. `App.mc`, `file.jungle`) selects the language;
 anything not ending in `.jungle` is treated as Monkey C.
 
 `--serve` keeps the process alive and answers repeated requests so editors
-lint without spawning per keystroke. Frame protocol: send
-`<label>\n<byte-length>\n<source bytes>`; receive one line containing the
-same JSON diagnostics array. EOF on stdin exits cleanly.
+lint without spawning per keystroke.
 
-Runs text rules, lexical/syntax diagnostics, and AST-backed lint rules.
-Diagnostics print as `path:line:col: severity: message [code]` and the exit
-code is 1 on any finding.
+- Frame protocol: send `<label>\n<byte-length>\n<source bytes>`.
+- Receive one line containing the same JSON diagnostics array.
+- EOF on stdin exits cleanly.
+
+`lint` runs:
+
+- Text rules
+- Lexical/syntax diagnostics
+- AST-backed lint rules
+
+Diagnostics print as `path:line:col: severity: message [code]`; exit code is 1
+on any finding.
 
 ```bash
 monkey lint --json [paths...]    # JSON array of diagnostics
 monkey lint --sarif [paths...]   # SARIF 2.1.0 log
 ```
 
-Diagnostics can be suppressed inline with `monkey-ignore` comments —
-`// monkey-ignore` (or `# monkey-ignore` in Jungle) on the same line, or alone
-on the line above to cover the next line. Append rule codes to suppress only
-those: `// monkey-ignore unused-variable,PARSE001`.
+Diagnostics can be suppressed inline with `monkey-ignore` comments:
+
+- `// monkey-ignore` (or `# monkey-ignore` in Jungle) on the same line
+- Alone on the line above — covers the next line
+- Append rule codes to suppress only those: `// monkey-ignore unused-variable,PARSE001`
 
 Rules (`monkey-linter` registry):
 
@@ -82,9 +100,11 @@ lexer/parser are also reported.
 monkey check [paths...]
 ```
 
-`lint` plus a format-drift check — a superset of `lint`. Accepts `--json` and
-`--sarif` as well (format drift is reported as a `format-drift` diagnostic).
-Use this in CI and pre-commit hooks.
+`check` is `lint` plus a format-drift check — a superset of `lint`.
+
+- Accepts `--json` and `--sarif` (format drift is reported as a
+  `format-drift` diagnostic).
+- Use this in CI and pre-commit hooks.
 
 ## tokens
 
@@ -101,10 +121,14 @@ formatter edge cases.
 monkey parse [--ast] [--stdin] <file>
 ```
 
-Runs the Monkey C parser and reports lexical and syntax diagnostics
-(`LEX*`/`PARSE*` codes) with source spans. `--ast` dumps the parsed abstract
-syntax tree; `--stdin` reads source from stdin. The parser is permissive —
-it recovers from errors so it works on incomplete code.
+`parse` behavior:
+
+- Runs the Monkey C parser and reports lexical and syntax diagnostics
+  (`LEX*`/`PARSE*` codes) with source spans.
+- `--ast` dumps the parsed abstract syntax tree.
+- `--stdin` reads source from stdin.
+- The parser is permissive — it recovers from errors so it works on
+  incomplete code.
 
 ## doctor
 
@@ -112,10 +136,15 @@ it recovers from errors so it works on incomplete code.
 monkey doctor [--sdk <path>] [--key <path>] [path]
 ```
 
-Checks the local toolchain setup: Connect IQ SDK discovery, developer key,
-installed device profiles, and project discovery (`monkey.jungle` +
-`manifest.xml`) from `path` (default `.`). Prints `ok`/`warn`/`FAIL` per
-check; exits 1 when the SDK or key is missing.
+`doctor` checks the local toolchain setup:
+
+- Connect IQ SDK discovery
+- Developer key
+- Installed device profiles
+- Project discovery (`monkey.jungle` + `manifest.xml`) from `path`
+  (default `.`)
+
+Prints `ok`/`warn`/`FAIL` per check; exits 1 when the SDK or key is missing.
 
 ## sdk
 
@@ -125,15 +154,22 @@ monkey sdk detect   # resolved SDK path + version
 monkey sdk info     # tools (monkeyc/monkeydo/connectiq/monkeydoc) + version
 ```
 
-SDK lookup mirrors the editor extensions: `--sdk` flag →
-`MONKEYC_SDK_PATH`/`MONKEY_SDK` env → `current-sdk.cfg` → newest SDK under
-`Sdks/`. The same env vars apply to `doctor` and `sdk info`/`detect`.
+SDK lookup mirrors the editor extensions — in order:
 
-Developer-key lookup (`doctor --key`, and later build commands):
-`--key` flag → `MONKEYC_DEVELOPER_KEY`/`MONKEY_KEY` env →
-`~/.config/garmin/developer_key[.der]`,
-`~/Library/Application Support/Garmin/ConnectIQ/developer_key.der`, and
-editor global-storage locations.
+1. `--sdk` flag
+2. `MONKEYC_SDK_PATH`/`MONKEY_SDK` env
+3. `current-sdk.cfg`
+4. Newest SDK under `Sdks/`
+
+The same env vars apply to `doctor` and `sdk info`/`detect`.
+
+Developer-key lookup (`doctor --key`, and later build commands), in order:
+
+1. `--key` flag
+2. `MONKEYC_DEVELOPER_KEY`/`MONKEY_KEY` env
+3. `~/.config/garmin/developer_key[.der]`
+4. `~/Library/Application Support/Garmin/ConnectIQ/developer_key.der`
+5. Editor global-storage locations
 
 ## device
 
@@ -155,12 +191,16 @@ monkey project check [--sdk <path>] [path]
 type, `minApiLevel`, entry point, and jungle properties.
 
 `check` validates `manifest.xml` against the discovered Connect IQ SDK:
-product IDs against `Devices/` profiles, `minApiLevel` against each
-device's API level, and app `type` against supported app types — plus an
-API-availability pass that resolves `Toybox.*` references in every `.mc`
-file (via `using` bindings) against each product's
-`<device>.api.debug.xml` surface and reports `[api-unavailable]` errors
-for symbols missing on a target device. Exits 1 on findings.
+
+- Product IDs against `Devices/` profiles
+- `minApiLevel` against each device's API level
+- App `type` against supported app types
+- API-availability pass: resolves `Toybox.*` references in every `.mc` file
+  (via `using` bindings) against each product's
+  `<device>.api.debug.xml` surface and reports `[api-unavailable]` errors
+  for symbols missing on a target device
+
+Exits 1 on findings.
 
 ## new
 
@@ -168,13 +208,18 @@ for symbols missing on a target device. Exits 1 on findings.
 monkey new <dir> [--name Name] [--type watchface|datafield|watchapp|widget] [--device id]... [--min-api x.y.z]
 ```
 
-Scaffolds a minimal Connect IQ project: `monkey.jungle`, `manifest.xml`,
-`resources/strings/strings.xml`, an SVG launcher icon, and a two-file app
-(`source/<Name>App.mc` + `source/<Name>View.mc`) using the
-`Application.AppBase` + `WatchUi.View` structure. Generated `.mc`/`.jungle`
-files are formatter-clean, so `monkey check` passes immediately and
-`monkey build` works once a device is added. Fails if the target already
-contains `monkey.jungle` or `manifest.xml`.
+Scaffolds a minimal Connect IQ project:
+
+- `monkey.jungle`
+- `manifest.xml`
+- `resources/strings/strings.xml`
+- An SVG launcher icon
+- A two-file app (`source/<Name>App.mc` + `source/<Name>View.mc`) using the
+  `Application.AppBase` + `WatchUi.View` structure
+
+Generated `.mc`/`.jungle` files are formatter-clean, so `monkey check` passes
+immediately and `monkey build` works once a device is added. Fails if the
+target already contains `monkey.jungle` or `manifest.xml`.
 
 ## test
 
@@ -183,18 +228,24 @@ monkey test [--device <id>|all] [--sdk <path>] [--key <path>]
             [--run] [--test <name>] [--no-simulator] [path]
 ```
 
-Default: project verification gate — runs `monkey check` (lint + format
-drift) then `monkey build`. Exits non-zero on any finding or build
-failure; intended for CI and pre-commit.
+Default mode — project verification gate:
 
-With `--run`: compiles with `monkeyc -t` (unit-test mode), launches the
-simulator, and executes `Toybox.Test` tests via `monkeydo -t`. `--test
-<name>` runs a single `(:test)`-annotated method; `--no-simulator` assumes
-a simulator is already running (physical devices). Per-test results are
-parsed from the RESULTS block — failures emit `::error::` GitHub Actions
-annotations and a markdown table is appended to `$GITHUB_STEP_SUMMARY`.
-Note `monkeydo -t` exits non-zero even when tests pass — Monkey parses the
-summary instead.
+- Runs `monkey check` (lint + format drift) then `monkey build`.
+- Exits non-zero on any finding or build failure.
+- Intended for CI and pre-commit.
+
+With `--run`:
+
+- Compiles with `monkeyc -t` (unit-test mode).
+- Launches the simulator.
+- Executes `Toybox.Test` tests via `monkeydo -t`.
+- `--test <name>` runs a single `(:test)`-annotated method.
+- `--no-simulator` assumes a simulator is already running (physical devices).
+- Per-test results are parsed from the RESULTS block — failures emit
+  `::error::` GitHub Actions annotations and a markdown table is appended to
+  `$GITHUB_STEP_SUMMARY`.
+- Note: `monkeydo -t` exits non-zero even when tests pass — Monkey parses the
+  summary instead.
 
 `--device all` runs the suite once per `<iq:product>` in `manifest.xml` —
 the in-process equivalent of a CI device matrix. For a real matrix (one
@@ -227,8 +278,10 @@ jobs:
           MONKEYC_DEVELOPER_KEY: ${{ secrets.MONKEYC_DEVELOPER_KEY }}
 ```
 
-`--device all` is simpler for local runs and small manifests; the matrix
-above parallelizes and isolates per-device failures in CI.
+`--device all` vs a workflow matrix:
+
+- `--device all` is simpler for local runs and small manifests.
+- The matrix above parallelizes and isolates per-device failures in CI.
 
 ## build
 
@@ -238,10 +291,15 @@ monkey build [--device <id>] [--sdk <path>] [--key <path>] [path]
 
 Compiles the discovered project with the official SDK:
 `monkeyc -f <monkey.jungle> -d <device> -o bin/<name>.prg -y <key> -w`.
-Prints the `.prg` path on success; streams `monkeyc` output.
 
-Device selection: `--device` → `MONKEYC_DEVICE` env → first `<iq:product>`
-in the manifest.
+- Prints the `.prg` path on success.
+- Streams `monkeyc` output.
+
+Device selection, in order:
+
+1. `--device` flag
+2. `MONKEYC_DEVICE` env
+3. First `<iq:product>` in the manifest
 
 ## run
 
@@ -249,10 +307,12 @@ in the manifest.
 monkey run [--device <id>] [--sdk <path>] [--key <path>] [--no-simulator] [path]
 ```
 
-Builds, launches the Connect IQ simulator (`connectiq`), waits for it to boot,
-then deploys the PRG with `monkeydo <prg> <device>` — the same flow as the
-editor runtime preview. `--no-simulator` skips the simulator launch (useful
-when it's already running or deploying to a physical device).
+`run` builds, launches the Connect IQ simulator (`connectiq`), waits for it
+to boot, then deploys the PRG with `monkeydo <prg> <device>` — the same flow
+as the editor runtime preview.
+
+- `--no-simulator` skips the simulator launch (useful when it's already
+  running or deploying to a physical device).
 
 ## mcp
 
@@ -290,7 +350,9 @@ Example MCP client config:
 monkey lsp
 ```
 
-Runs a language server over stdio (LSP, full document sync). Capabilities:
+Runs a language server over stdio (LSP, full document sync).
+
+Capabilities:
 
 - **Diagnostics** — `monkey-linter` rules, lex/parse errors, and
   `monkey-ignore` suppressions published as
@@ -315,15 +377,20 @@ Runs a language server over stdio (LSP, full document sync). Capabilities:
 - **`textDocument/signatureHelp`** — parameter info inside call
   parentheses.
 - **`textDocument/prepareRename`** — validates rename targets up front.
-- **Context-aware completion** — `X.` completes members of `X`'s declared or inferred
-  (`new X()`) type (or the enclosing class for `this.`); `Toybox.`/`Toybox.Module.`/bare
-  module paths complete from the SDK's `api.debug.xml` member database; plain positions
-  offer keywords plus declarations from the whole project.
+- **Context-aware completion** — after a dot:
+  - `X.` completes members of `X`'s declared or inferred (`new X()`) type
+    (or the enclosing class for `this.`).
+  - `Toybox.`/`Toybox.Module.`/bare module paths complete from the SDK's
+    `api.debug.xml` member database.
+  - Plain positions offer keywords plus declarations from the whole project.
 
 Definition, references, and rename resolve across all `*.mc` files in the
 workspace (indexed from `workspaceFolders`/`rootUri`, or the opened file's
-directory). All positions are UTF-16-correct. Jungle documents get
-diagnostics, formatting, and empty results for the Monkey C features.
+directory).
+
+- All positions are UTF-16-correct.
+- Jungle documents get diagnostics, formatting, and empty results for the
+  Monkey C features.
 
 ## Lint configuration
 

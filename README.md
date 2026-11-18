@@ -7,8 +7,10 @@
 **Live demo:** <https://hieudoanm.github.io/monkey/>
 
 Monkey provides a fast, zero-dependency CLI plus editor extensions for Monkey C
-development. It formats, lints, parses, and checks Connect IQ projects — and
-delegates building and simulation to the official Garmin SDK.
+development:
+
+- Formats, lints, parses, and checks Connect IQ projects.
+- Delegates building and simulation to the official Garmin SDK.
 
 ## What's in this repo
 
@@ -50,10 +52,15 @@ See the [CLI reference](packages/landing/docs/guides/cli-reference.md) for detai
 - **Zed**: install `extension-monkey-c-zed.zip` from the same release, or add
   the extension as a dev extension (see `packages/extensions/zed/README.md`).
 
-Both extensions provide syntax highlighting, formatting, and a runtime preview
-that builds and launches apps with the official Connect IQ SDK (`monkeyc`,
-`connectiq`, `monkeydo`). Building requires a Garmin developer key and an
-installed SDK — Monkey does not ship its own compiler or simulator.
+Both extensions provide:
+
+- Syntax highlighting
+- Formatting
+- A runtime preview that builds and launches apps with the official Connect IQ
+  SDK (`monkeyc`, `connectiq`, `monkeydo`)
+
+Building requires a Garmin developer key and an installed SDK — Monkey does
+not ship its own compiler or simulator.
 
 ## Repository layout
 

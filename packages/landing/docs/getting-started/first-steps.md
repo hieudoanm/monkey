@@ -7,10 +7,12 @@ a Monkey C project:
 monkey check .
 ```
 
-Directories are searched recursively for `*.mc` and `*.jungle` files (skipping
-`node_modules`, `target`, and `.git`). `check` runs the linter plus a
-format-drift check and exits non-zero on any finding — ideal for pre-commit
-hooks and CI.
+`check` behavior:
+
+- Directories are searched recursively for `*.mc` and `*.jungle` files
+  (skipping `node_modules`, `target`, and `.git`).
+- Runs the linter plus a format-drift check.
+- Exits non-zero on any finding — ideal for pre-commit hooks and CI.
 
 To apply formatting in place:
 

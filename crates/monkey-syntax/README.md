@@ -2,9 +2,13 @@
 
 Lexer and token model for the Monkey C language (Garmin Connect IQ).
 
-Zero dependencies. The lexer is permissive — it never fails and produces a
-best-effort token stream even for malformed input so downstream tools
-(formatter, linter) can still operate on broken files.
+Zero dependencies.
+
+The lexer is permissive:
+
+- Never fails.
+- Produces a best-effort token stream even for malformed input.
+- Lets downstream tools (formatter, linter) operate on broken files.
 
 ## Tokens
 

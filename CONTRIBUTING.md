@@ -35,8 +35,9 @@ cargo test --workspace
 ./target/release/monkey check ..   # lint + format-check the repo
 ```
 
-Keep `monkey check ..` clean before opening a PR. The formatter is
-conservative; review diffs after `monkey format --write`.
+Keep `monkey check ..` clean before opening a PR.
+
+The formatter is conservative; review diffs after `monkey format --write`.
 
 ## VS Code extension (`packages/extensions/vscode`)
 
@@ -75,9 +76,13 @@ pnpm run build    # static export → out/
 
 ## Releases
 
-CI publishes a rolling `latest` GitHub release on pushes to `master` with the
-CLI binaries, VSIX, and Zed zip. Release notes come from `RELEASE.md` — update
-it when you change what ships.
+CI publishes a rolling `latest` GitHub release on pushes to `master` with:
+
+- CLI binaries
+- VS Code `.vsix`
+- Zed `.zip`
+
+Release notes come from `RELEASE.md` — update it when you change what ships.
 
 ## License
 

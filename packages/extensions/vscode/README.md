@@ -32,7 +32,10 @@ It intentionally does **not** bundle Garmin SDK integration features that requir
 
 For full Connect IQ project workflows, install the official
 [Monkey C extension](https://marketplace.visualstudio.com/items?itemName=garmin.monkey-c)
-and the Connect IQ SDK. If both extensions claim `monkeyc`/`source.monkeyc` or Jungle language IDs and behavior conflicts, disable one:
+and the Connect IQ SDK.
+
+If both extensions claim `monkeyc`/`source.monkeyc` or Jungle language IDs and
+behavior conflicts, disable one:
 
 ```bash
 code --disable-extension garmin.monkey-c
@@ -120,8 +123,8 @@ node -e "JSON.parse(require('fs').readFileSync('syntaxes/jungle.tmLanguage.json'
 ## Language server
 
 When the `monkey` CLI (from this repository's `crates/`) is on `PATH`, the
-extension starts `monkey lsp` and gets full language support on Monkey C and
-Jungle documents:
+extension starts `monkey lsp` and provides full language support on Monkey C
+and Jungle documents:
 
 - **Diagnostics** — parse errors, lex errors, and lint findings published by
   the language server (unsaved buffers included).
@@ -134,8 +137,9 @@ Jungle documents:
 - **Signature Help** and **Formatting** (range + full document).
 
 If `monkey lsp` cannot be launched (CLI missing), the extension falls back to
-the lint-only diagnostic provider (`monkey lint --serve`, one persistent
-process).
+the lint-only diagnostic provider:
+
+- Uses `monkey lint --serve` — one persistent process.
 
 Settings:
 
@@ -148,10 +152,14 @@ These are Monkey toolchain features, not Garmin compiler diagnostics.
 
 ## Runtime preview (SDK/simulator)
 
-This extension can launch a true Connect IQ runtime preview when the Garmin SDK is installed locally:
+This extension can launch a true Connect IQ runtime preview when the Garmin
+SDK is installed locally:
 
 - Command: **Monkey C: Runtime Preview (Simulator)**
-- Builds the nearest buildable package (directory containing `monkey.jungle` and `manifest.xml`) with `monkeyc`, starts `connectiq` (simulator), waits briefly, then runs the generated PRG with `monkeydo`.
+- Finds the nearest buildable package (directory containing `monkey.jungle`
+  and `manifest.xml`) with the active file.
+- Builds it with `monkeyc`, starts `connectiq` (simulator), waits briefly,
+  then runs the generated PRG with `monkeydo`.
 
 Settings:
 
