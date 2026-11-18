@@ -18,6 +18,13 @@ To apply formatting in place:
 monkey format --write .
 ```
 
+To verify your Connect IQ setup (SDK, developer key, device profiles, and
+project discovery):
+
+```bash
+monkey doctor .
+```
+
 See the [CLI reference](../guides/cli-reference.md) for every subcommand and
 flag, and [editor setup](../guides/editor-extensions.md) to wire formatting into
 VS Code or Zed.

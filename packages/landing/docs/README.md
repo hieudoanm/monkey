@@ -5,8 +5,10 @@ Garmin Connect IQ — plus editor extensions for VS Code and Zed.
 
 ## What's inside
 
-- **`crates/`** — the `monkey` CLI (`format`, `lint`, `check`, `tokens`, `parse`) and the
-  `monkey-syntax`, `monkey-formatter`, and `monkey-linter` crates.
+- **`crates/`** — the `monkey` CLI (`format`, `lint`, `check`, `tokens`,
+  `parse`, `doctor`, `sdk`, `device`, `project`) and the `monkey-core`,
+  `monkey-syntax`, `monkey-parser`, `monkey-formatter`, `monkey-linter`,
+  `monkey-project`, and `monkey-sdk` crates.
 - **`packages/extensions/vscode/`** — Monkey C/Jungle VS Code extension.
 - **`packages/extensions/zed/`** — Monkey C/Jungle Zed extension.
 - **`packages/landing/`** — this site.
