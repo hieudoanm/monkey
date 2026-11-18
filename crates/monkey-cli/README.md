@@ -27,7 +27,7 @@ monkey project products|permissions|languages|barrels <list|set|add|remove> [val
 monkey project app show|set k=v... [path]
 monkey project uuid [path]                     # regenerate application UUID
 monkey test   [--device <id>|all] [--run] [--test name] [path]  # check+build; --run executes Toybox.Test (--device all = manifest matrix)
-monkey new    <dir> [--name X] [--type watchface] [--device id] [--min-api x.y.z]
+monkey new    <dir> [--name X] [--type watchface|barrel] [--device id] [--min-api x.y.z]
 monkey build  [--device <id>] [--sdk <path>] [--key <path>] [path]   # barrel manifests route to barrelbuild
 monkey run    [--device <id>] [--sdk <path>] [--key <path>] [--no-simulator] [path]
 monkey debug  [--device <id>] [--sdk <path>] [--key <path>] [path]   # build + launch mdd debugger

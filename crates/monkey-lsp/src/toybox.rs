@@ -15,6 +15,8 @@ pub struct ToyboxDb {
     returns: BTreeMap<String, String>,
     /// Bare member name → type (first wins) for unqualified calls.
     return_names: BTreeMap<String, String>,
+    /// `"Toybox.Math.cos"`-style key → markdown doc text from CDATA.
+    docs: BTreeMap<String, String>,
 }
 
 fn attr(tag: &str, name: &str) -> Option<String> {
@@ -57,6 +59,55 @@ fn return_type_of(chunk: &str) -> Option<String> {
     })
 }
 
+/// Extract the `<documentation><![CDATA[...]]></documentation>` body of a
+/// `<functionEntry>` chunk and flatten its HTML to readable text.
+fn doc_text_of(chunk: &str) -> Option<String> {
+    let i = chunk.find("<![CDATA[")? + "<![CDATA[".len();
+    let j = chunk[i..].find("]]>")? + i;
+    let html = &chunk[i..j];
+    let text = html_to_text(html);
+    (!text.is_empty()).then_some(text)
+}
+
+/// Flatten the doc HTML (`<div class="param">`, `<br/>`, entities) into
+/// plain lines suitable for markdown hover.
+fn html_to_text(html: &str) -> String {
+    // `<br>` variants become newlines; every other tag is dropped.
+    let mut s = String::with_capacity(html.len());
+    let mut rest = html;
+    while let Some(i) = rest.find('<') {
+        s.push_str(&rest[..i]);
+        rest = &rest[i..];
+        if rest.starts_with("<br") {
+            // Skip to the closing '>' of the <br ...> tag.
+            if let Some(j) = rest.find('>') {
+                s.push('\n');
+                rest = &rest[j + 1..];
+                continue;
+            }
+        }
+        if let Some(j) = rest.find('>') {
+            rest = &rest[j + 1..];
+        } else {
+            break;
+        }
+    }
+    s.push_str(rest);
+    let s = s
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&amp;", "&");
+    let lines: Vec<&str> = s.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+    let mut out = lines.join("\n");
+    const MAX: usize = 4000;
+    if out.len() > MAX {
+        out.truncate(MAX);
+    }
+    out
+}
+
 impl ToyboxDb {
     /// Load from the detected SDK's `bin/api.debug.xml`.
     pub fn load() -> Option<Self> {
@@ -85,7 +136,9 @@ impl ToyboxDb {
         // parents (`parent="String"`). Resolve each to the qualified owner
         // (`Toybox.Lang.String`) using the `<entry>`-built map, falling
         // back to the raw parent name.
-        let mut fns: Vec<(String, String, Option<String>)> = Vec::new(); // (name, parent, ret)
+        // (name, parent, return type, doc text)
+        type FnRow = (String, String, Option<String>, Option<String>);
+        let mut fns: Vec<FnRow> = Vec::new();
         for chunk in xml.split("<functionEntry ").skip(1) {
             let tag_end = chunk.find('>').unwrap_or(0);
             let tag = &chunk[..tag_end];
@@ -95,7 +148,7 @@ impl ToyboxDb {
             if name.contains("&lt;") {
                 continue;
             }
-            fns.push((name, parent, return_type_of(chunk)));
+            fns.push((name, parent, return_type_of(chunk), doc_text_of(chunk)));
         }
         let resolve = |parent: &str| -> String {
             let suffix = format!(".{}", parent);
@@ -106,13 +159,23 @@ impl ToyboxDb {
                 .cloned()
                 .unwrap_or_else(|| owner_of(parent))
         };
-        let resolved: Vec<(String, String, String, Option<String>)> = fns
+        // (name, owner, raw parent, return type, doc text)
+        let resolved: Vec<_> = fns
             .iter()
-            .map(|(name, parent, ty)| (name.clone(), resolve(parent), parent.clone(), ty.clone()))
+            .map(|(name, parent, ty, doc)| {
+                (
+                    name.clone(),
+                    resolve(parent),
+                    parent.clone(),
+                    ty.clone(),
+                    doc.clone(),
+                )
+            })
             .collect();
         let mut returns = BTreeMap::new();
         let mut return_names = BTreeMap::new();
-        for (name, owner, raw_parent, ty) in resolved {
+        let mut docs = BTreeMap::new();
+        for (name, owner, raw_parent, ty, doc) in resolved {
             members
                 .entry(owner.clone())
                 .or_default()
@@ -129,13 +192,20 @@ impl ToyboxDb {
                 returns
                     .entry(format!("{}.{}", owner_of(&raw_parent), name))
                     .or_insert_with(|| ty.clone());
-                return_names.entry(name).or_insert(ty);
+                return_names.entry(name.clone()).or_insert(ty);
+            }
+            if let Some(doc) = doc {
+                docs.entry(format!("{}.{}", owner, name))
+                    .or_insert_with(|| doc.clone());
+                docs.entry(format!("{}.{}", owner_of(&raw_parent), name))
+                    .or_insert(doc);
             }
         }
         ToyboxDb {
             members,
             returns,
             return_names,
+            docs,
         }
     }
 
@@ -179,6 +249,12 @@ impl ToyboxDb {
             .get(owner)
             .map(|s| s.iter().cloned().collect())
             .unwrap_or_default()
+    }
+
+    /// Markdown doc text for `owner.member` (e.g. `"Toybox.Math"`, `"cos"`).
+    /// `None` when the API has no documentation for the member.
+    pub fn doc(&self, owner: &str, member: &str) -> Option<String> {
+        self.docs.get(&format!("{}.{}", owner, member)).cloned()
     }
 
     /// Child names one level below `prefix` — e.g. `children_of("Toybox")`
@@ -236,5 +312,24 @@ mod tests {
         // Bare-name fallback.
         assert_eq!(db.return_type("Whatever", "cos").as_deref(), Some("Number"));
         assert_eq!(db.return_type("Math", "missing"), None);
+    }
+
+    #[test]
+    fn parses_doc_text() {
+        let xml = r#"<entry parent="Toybox_Math" symbol="cos" pc="1"/>
+<functionEntry accessMode="public" name="cos" parent="Math">
+<param id="x"/>
+<documentation><![CDATA[<div class="description"> Get the cosine of an angle.<br/> <div class="param"> x [Toybox::Lang::Number]</div><br/>  The angle in radians<br/> <div class="returns">Returns  [Toybox::Lang::Float]</div><br/> @since 1.0.0<br/></div>]]></documentation>
+</functionEntry>"#;
+        let db = ToyboxDb::parse(xml);
+        let doc = db.doc("Toybox.Math", "cos").expect("doc for Math.cos");
+        assert!(doc.contains("cosine of an angle"));
+        assert!(doc.contains("angle in radians"));
+        assert!(doc.contains("Returns"));
+        assert!(!doc.contains("<div"));
+        assert!(!doc.contains("<br"));
+        // Unqualified parent key also resolves.
+        assert!(db.doc("Math", "cos").is_some());
+        assert!(db.doc("Toybox.Math", "missing").is_none());
     }
 }
