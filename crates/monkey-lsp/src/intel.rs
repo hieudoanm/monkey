@@ -29,6 +29,10 @@ pub struct Decl {
     pub kind: &'static str,
     /// One-line signature for hover/completion detail.
     pub detail: String,
+    /// Declared type name for vars/params/fields (last path segment).
+    pub type_name: Option<String>,
+    /// Parameter list for functions/methods (`"name as Type"` strings).
+    pub params: Vec<String>,
     /// The identifier's own span.
     pub name_span: Span,
     /// Parent class name for methods/fields.
@@ -65,17 +69,29 @@ fn type_ref_text(t: &TypeRef) -> String {
     }
 }
 
-fn params_text(f: &FunctionDecl) -> String {
-    let mut parts = Vec::new();
-    for p in &f.params {
-        let mut s = p.name.text.clone();
-        if let Some(t) = &p.type_ann {
-            s.push_str(" as ");
-            s.push_str(&type_text(&Some(t.clone())));
-        }
-        parts.push(s);
+fn param_text(p: &Param) -> String {
+    let mut s = p.name.text.clone();
+    if let Some(t) = &p.type_ann {
+        s.push_str(" as ");
+        s.push_str(&type_ref_text(t));
     }
-    parts.join(", ")
+    s
+}
+
+fn params_text(f: &FunctionDecl) -> String {
+    f.params
+        .iter()
+        .map(param_text)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Last path segment of a `TypeRef::Path`, e.g. `Dc` from `Toybox.Dc`.
+fn type_name_of(t: &TypeRef) -> Option<String> {
+    match t {
+        TypeRef::Path { path, .. } => path.last().map(|i| i.text.clone()),
+        _ => None,
+    }
 }
 
 fn function_detail(f: &FunctionDecl, kind: &str) -> String {
@@ -98,6 +114,8 @@ impl Collector {
             name: name.text.clone(),
             kind,
             detail,
+            type_name: None,
+            params: Vec::new(),
             name_span: name.span,
             parent: self.class_stack.last().cloned(),
         });
@@ -128,7 +146,9 @@ impl Visitor for Collector {
         } else {
             format!("var {}: {}", f.name.text, ty)
         };
+        let n = self.decls.len();
         self.push(&f.name, "field", detail);
+        self.decls[n].type_name = f.type_ann.as_ref().and_then(type_name_of);
         for a in &f.annotations {
             self.visit_annotation(a);
         }
@@ -140,7 +160,9 @@ impl Visitor for Collector {
     fn visit_function(&mut self, f: &FunctionDecl) {
         let in_class = self.class_stack.last().is_some();
         let kind = if in_class { "method" } else { "function" };
+        let n = self.decls.len();
         self.push(&f.name, kind, function_detail(f, kind));
+        self.decls[n].params = f.params.iter().map(param_text).collect();
         for a in &f.annotations {
             self.visit_annotation(a);
         }
@@ -160,7 +182,9 @@ impl Visitor for Collector {
         } else {
             format!("{}: {}", p.name.text, ty)
         };
+        let n = self.decls.len();
         self.push(&p.name, "param", detail);
+        self.decls[n].type_name = p.type_ann.as_ref().and_then(type_name_of);
     }
 
     fn visit_enum(&mut self, d: &EnumDecl) {
@@ -185,7 +209,16 @@ impl Visitor for Collector {
         } else {
             format!("{} {}: {}", kw, d.name.text, ty)
         };
+        let n = self.decls.len();
         self.push(&d.name, "variable", detail);
+        self.decls[n].type_name =
+            d.type_ann
+                .as_ref()
+                .and_then(type_name_of)
+                .or_else(|| match &d.init {
+                    Some(Expr::New { type_, .. }) => type_name_of(type_),
+                    _ => None,
+                });
         for a in &d.annotations {
             self.visit_annotation(a);
         }
@@ -246,7 +279,7 @@ fn range_json(src: &str, span: Span) -> Value {
     })
 }
 
-fn ident_at(src: &str, offset: usize) -> Option<(usize, usize)> {
+pub(crate) fn ident_at(src: &str, offset: usize) -> Option<(usize, usize)> {
     let bytes = src.as_bytes();
     let is_ident = |b: u8| b.is_ascii_alphanumeric() || b == b'_';
     let mut start = offset;
@@ -410,36 +443,6 @@ pub fn hover(src: &str, offset: usize) -> Option<Value> {
     }))
 }
 
-/// `textDocument/definition` — same-file jump to the declaration.
-pub fn definition(src: &str, uri: &str, offset: usize) -> Value {
-    let Some((start, end)) = ident_at(src, offset) else {
-        return json!([]);
-    };
-    let word = &src[start..end];
-    let decls = collect_decls(src);
-    let mut locations: Vec<Value> = decls
-        .iter()
-        .filter(|d| d.name == word && d.name_span.start as usize != start)
-        .map(|d| {
-            json!({
-                "uri": uri,
-                "range": range_json(src, d.name_span),
-            })
-        })
-        .collect();
-    locations.dedup_by(|a, b| a == b);
-    // If the cursor is on the declaration itself, still offer its location.
-    if locations.is_empty() {
-        if let Some(d) = decls.iter().find(|d| d.name == word) {
-            locations.push(json!({
-                "uri": uri,
-                "range": range_json(src, d.name_span),
-            }));
-        }
-    }
-    json!(locations)
-}
-
 /// `textDocument/completion` — keywords + declared names in the file.
 pub fn completion(src: &str) -> Value {
     let decls = collect_decls(src);
@@ -573,40 +576,6 @@ impl Visitor for UseCollector {
     }
 }
 
-/// `textDocument/references` — same-file uses of the symbol at `offset`.
-/// Returns `Location[]`; includes the declaration when `include_decl`.
-pub fn references(src: &str, uri: &str, offset: usize, include_decl: bool) -> Value {
-    let Some((start, _)) = ident_at(src, offset) else {
-        return json!([]);
-    };
-    let word = src[start..]
-        .chars()
-        .take_while(|c| c.is_alphanumeric() || *c == '_')
-        .collect::<String>();
-    let decls = collect_decls(src);
-    let Some(decl) = decls.iter().find(|d| d.name == word) else {
-        return json!([]);
-    };
-    let parsed = monkey_parser::parse(src);
-    let mut c = UseCollector {
-        name: word.clone(),
-        uses: Vec::new(),
-    };
-    c.visit_source_file(&parsed.file);
-    let mut spans: Vec<Span> = c.uses;
-    spans.retain(|s| s.start as usize != decl.name_span.start as usize);
-    spans.sort_by_key(|s| s.start);
-    spans.dedup();
-    let mut locations: Vec<Value> = spans
-        .iter()
-        .map(|s| json!({"uri": uri, "range": range_json(src, *s)}))
-        .collect();
-    if include_decl {
-        locations.push(json!({"uri": uri, "range": range_json(src, decl.name_span)}));
-    }
-    json!(locations)
-}
-
 /// `textDocument/formatting` — full-document format as a single TextEdit.
 /// Returns `null` when the text is already formatted.
 pub fn formatting(src: &str, is_jungle: bool) -> Value {
@@ -625,51 +594,230 @@ pub fn formatting(src: &str, is_jungle: bool) -> Value {
     }])
 }
 
-/// `textDocument/rename` — same-file rename as a WorkspaceEdit.
-/// Returns `None` when the position isn't on a declared symbol or the new
-/// name isn't a valid identifier.
-pub fn rename(src: &str, uri: &str, offset: usize, new_name: &str) -> Option<Value> {
-    if new_name.is_empty()
-        || !new_name
-            .chars()
-            .next()
-            .map(|c| c.is_alphabetic() || c == '_')
-            .unwrap_or(false)
-        || !new_name.chars().all(|c| c.is_alphanumeric() || c == '_')
-    {
-        return None;
-    }
-    let (start, _) = ident_at(src, offset)?;
-    let word: String = src[start..]
-        .chars()
-        .take_while(|c| c.is_alphanumeric() || *c == '_')
-        .collect();
-    if word.is_empty() {
-        return None;
-    }
-    let decls = collect_decls(src);
-    let decl = decls.iter().find(|d| d.name == word)?;
+/// All identifier *uses* of `name` in `src` (spans only).
+pub fn uses_in(src: &str, name: &str) -> Vec<Span> {
     let parsed = monkey_parser::parse(src);
     let mut c = UseCollector {
-        name: word.clone(),
+        name: name.to_string(),
         uses: Vec::new(),
     };
     c.visit_source_file(&parsed.file);
-    let mut spans = c.uses;
-    spans.retain(|s| s.start as usize != decl.name_span.start as usize);
-    spans.push(decl.name_span);
-    spans.sort_by_key(|s| s.start);
-    spans.dedup();
-    let edits: Vec<Value> = spans
+    c.uses.sort_by_key(|s| s.start);
+    c.uses.dedup();
+    c.uses
+}
+
+/// The class declaration whose body contains `offset`, if any.
+pub fn class_at(src: &str, offset: usize) -> Option<ClassDecl> {
+    let parsed = monkey_parser::parse(src);
+    parsed.file.items.iter().find_map(|i| match i {
+        Item::Class(c) if offset >= c.span.start as usize && offset < c.span.end as usize => {
+            Some(c.clone())
+        }
+        _ => None,
+    })
+}
+
+/// Member names (fields + methods) of a class declared in `src`.
+pub fn class_members(src: &str, class_name: &str) -> Vec<(String, &'static str)> {
+    let parsed = monkey_parser::parse(src);
+    for item in &parsed.file.items {
+        if let Item::Class(c) = item {
+            if c.name.text == class_name {
+                return c
+                    .members
+                    .iter()
+                    .filter_map(|m| match m {
+                        ClassMember::Field(f) => Some((f.name.text.clone(), "field")),
+                        ClassMember::Function(f) => Some((f.name.text.clone(), "method")),
+                        _ => None,
+                    })
+                    .collect();
+            }
+        }
+    }
+    Vec::new()
+}
+
+/// `textDocument/signatureHelp` — signature of the call enclosing `offset`.
+pub fn signature_help(src: &str, offset: usize) -> Option<Value> {
+    let parsed = monkey_parser::parse(src);
+    // Innermost Call whose arg list contains the offset.
+    struct Finder {
+        offset: usize,
+        best: Option<(Span, String)>,
+    }
+    impl Visitor for Finder {
+        fn visit_expr(&mut self, e: &Expr) {
+            if let Expr::Call { span, callee, .. } = e {
+                let inside = offset_in(span, self.offset);
+                if inside {
+                    let name = callee_name(callee);
+                    if !name.is_empty() {
+                        let replace = match self.best {
+                            Some((b, _)) => span.start >= b.start,
+                            None => true,
+                        };
+                        if replace {
+                            self.best = Some((*span, name));
+                        }
+                    }
+                }
+            }
+            // default recursion
+            match e {
+                Expr::Missing { .. }
+                | Expr::Literal(_)
+                | Expr::Ident(_)
+                | Expr::This { .. }
+                | Expr::Super { .. }
+                | Expr::Path { .. } => {}
+                Expr::Call { callee, args, .. } => {
+                    self.visit_expr(callee);
+                    for a in args {
+                        self.visit_expr(a);
+                    }
+                }
+                Expr::Member { object, .. } => self.visit_expr(object),
+                Expr::Index { object, index, .. } => {
+                    self.visit_expr(object);
+                    self.visit_expr(index);
+                }
+                Expr::Unary { expr, .. }
+                | Expr::Postfix { expr, .. }
+                | Expr::Paren { expr, .. } => self.visit_expr(expr),
+                Expr::Binary { left, right, .. }
+                | Expr::Assign {
+                    target: left,
+                    value: right,
+                    ..
+                } => {
+                    self.visit_expr(left);
+                    self.visit_expr(right);
+                }
+                Expr::Ternary {
+                    cond, then, else_, ..
+                } => {
+                    self.visit_expr(cond);
+                    self.visit_expr(then);
+                    self.visit_expr(else_);
+                }
+                Expr::New { args, .. } => {
+                    for a in args {
+                        self.visit_expr(a);
+                    }
+                }
+                Expr::Cast { expr, .. } => self.visit_expr(expr),
+                Expr::Array { elems, .. } => {
+                    for e in elems {
+                        self.visit_expr(e);
+                    }
+                }
+                Expr::Dict { entries, .. } => {
+                    for (k, v) in entries {
+                        self.visit_expr(k);
+                        self.visit_expr(v);
+                    }
+                }
+            }
+        }
+    }
+    let mut f = Finder { offset, best: None };
+    f.visit_source_file(&parsed.file);
+    let (call_span, name) = f.best?;
+    let span = call_span;
+
+    // Resolve the callee to a declaration for its parameter list.
+    let decls = collect_decls(src);
+    let decl = decls
         .iter()
-        .map(|s| {
-            json!({
-                "range": range_json(src, *s),
-                "newText": new_name,
-            })
-        })
-        .collect();
-    Some(json!({"changes": {uri: edits}}))
+        .find(|d| d.name == name && (d.kind == "function" || d.kind == "method"))
+        .or_else(|| decls.iter().find(|d| d.name == name));
+    let (label, params) = match decl {
+        Some(d) => {
+            let sig = d
+                .detail
+                .strip_prefix(&format!("{} ", d.kind))
+                .unwrap_or(&d.detail);
+            (sig.to_string(), d.params.clone())
+        }
+        None => (format!("{}()", name), Vec::new()),
+    };
+
+    // Active parameter: count top-level commas between '(' and offset.
+    let active = active_parameter(src, span, offset);
+    let parameters: Vec<Value> = params.iter().map(|p| json!({"label": p})).collect();
+    Some(json!({
+        "signatures": [{
+            "label": label,
+            "parameters": parameters,
+        }],
+        "activeSignature": 0,
+        "activeParameter": active.min(parameters.len().saturating_sub(1)),
+    }))
+}
+
+pub(crate) fn valid_ident(s: &str) -> bool {
+    !s.is_empty()
+        && s.chars()
+            .next()
+            .map(|c| c.is_alphabetic() || c == '_')
+            .unwrap_or(false)
+        && s.chars().all(|c| c.is_alphanumeric() || c == '_')
+}
+
+fn offset_in(span: &Span, offset: usize) -> bool {
+    offset >= span.start as usize && offset <= span.end as usize
+}
+
+fn callee_name(callee: &Expr) -> String {
+    match callee {
+        Expr::Ident(i) => i.text.clone(),
+        Expr::Member { name, .. } => name.text.clone(),
+        Expr::Path { segments, .. } => segments.last().map(|i| i.text.clone()).unwrap_or_default(),
+        _ => String::new(),
+    }
+}
+
+/// Count commas at paren-depth 0 between the call's `(` and `offset`.
+fn active_parameter(src: &str, call_span: Span, offset: usize) -> usize {
+    let bytes = src.as_bytes();
+    let start = call_span.start as usize;
+    let end = (call_span.end as usize).min(src.len());
+    // Find the '(' that opens the arg list.
+    let mut open = None;
+    for (i, &b) in bytes.iter().enumerate().take(end).skip(start) {
+        if b == b'(' {
+            open = Some(i);
+            break;
+        }
+    }
+    let Some(open) = open else { return 0 };
+    let upto = offset.min(end);
+    let mut depth = 0i32;
+    let mut commas = 0usize;
+    let mut i = open;
+    while i < upto {
+        match bytes[i] {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            b',' if depth == 1 => commas += 1,
+            b'"' | b'\'' => {
+                // skip string/char literal
+                let q = bytes[i];
+                i += 1;
+                while i < upto && bytes[i] != q {
+                    if bytes[i] == b'\\' {
+                        i += 1;
+                    }
+                    i += 1;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    commas
 }
 
 #[cfg(test)]
@@ -718,16 +866,6 @@ mod tests {
     }
 
     #[test]
-    fn definition_same_file() {
-        // 'counter' usage inside onUpdate → field decl
-        let use_offset = SRC.rfind("counter").unwrap();
-        let defs = definition(SRC, "file:///a.mc", use_offset);
-        let arr = defs.as_array().unwrap();
-        assert_eq!(arr.len(), 1);
-        assert_eq!(arr[0]["uri"], "file:///a.mc");
-    }
-
-    #[test]
     fn completion_has_keywords_and_decls() {
         let c = completion(SRC);
         let labels: Vec<&str> = c["items"]
@@ -757,16 +895,6 @@ mod tests {
     }
 
     #[test]
-    fn references_finds_uses() {
-        let src = "class A {\n  var c = 0;\n  function f() {\n    c = 1;\n    c = c + 1;\n  }\n}\n";
-        let off = src.rfind("c + 1").unwrap();
-        let refs = references(src, "file:///a.mc", off, true);
-        let arr = refs.as_array().unwrap();
-        // decl + 3 uses (c=1, c=c, and 'c' inside 'c + 1'... actually uses: 'c = 1', 'c =' lhs, 'c +' rhs)
-        assert!(arr.len() >= 3, "got {} locations", arr.len());
-    }
-
-    #[test]
     fn formatting_returns_edit_or_null() {
         let messy = "class A{\nfunction f()as Void{var x=1;}\n}\n";
         let r = formatting(messy, false);
@@ -777,15 +905,29 @@ mod tests {
     }
 
     #[test]
-    fn rename_produces_workspace_edit() {
-        let src = "class A {\n  var c = 0;\n  function f() {\n    c = 1;\n    c = c + 1;\n  }\n}\n";
-        let off = src.rfind("c + 1").unwrap();
-        let edit = rename(src, "file:///a.mc", off, "count").unwrap();
-        let edits = edit["changes"]["file:///a.mc"].as_array().unwrap();
-        // decl + uses
-        assert!(edits.len() >= 4, "got {}", edits.len());
-        assert!(edits.iter().all(|e| e["newText"] == "count"));
-        assert!(rename(src, "file:///a.mc", off, "1bad").is_none());
-        assert!(rename(src, "file:///a.mc", off, "has space").is_none());
+    fn signature_help_finds_call() {
+        let src = "function draw(x as Number, y as Number) as Void {\n}\nfunction go() as Void {\n  draw(1, 2);\n}\n";
+        let off = src.rfind("2)").unwrap();
+        let h = signature_help(src, off).unwrap();
+        assert_eq!(h["activeSignature"], 0);
+        assert_eq!(h["activeParameter"], 1);
+        let label = h["signatures"][0]["label"].as_str().unwrap();
+        assert!(label.contains("draw"), "got {}", label);
+        assert_eq!(
+            h["signatures"][0]["parameters"].as_array().unwrap().len(),
+            2
+        );
+    }
+
+    #[test]
+    fn class_at_and_members() {
+        let src =
+            "class A {\n  var c = 0;\n  function m() as Void {}\n}\nfunction f() as Void {}\n";
+        let off = src.find("c = 0").unwrap();
+        let c = class_at(src, off).unwrap();
+        assert_eq!(c.name.text, "A");
+        let members = class_members(src, "A");
+        assert!(members.iter().any(|(n, _)| n == "c"));
+        assert!(members.iter().any(|(n, k)| n == "m" && *k == "method"));
     }
 }

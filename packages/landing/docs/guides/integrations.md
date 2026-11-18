@@ -54,7 +54,10 @@ diagnostics (`textDocument/publishDiagnostics` — parse errors plus every
 - `textDocument/references` — same-file find-references
 - `textDocument/completion` — keywords + declared names
 - `textDocument/formatting` — full-document format via `monkey-formatter`
-- `textDocument/rename` — same-file rename (declaration + all uses)
+- `textDocument/rename` — project-wide rename (declaration + all uses)
+- `textDocument/signatureHelp` — call parameter info
+- `textDocument/prepareRename` — rename validation
+- Member completion after `X.` via declared types; project-wide symbols
 
 All ranges use UTF-16 positions per the LSP spec.
 
@@ -66,7 +69,8 @@ zero-config option.
 
 ## Suppressing diagnostics
 
-Both paths honor `monkey-ignore` comments:
+Both paths honor `monkey-ignore` comments and `lint.*` keys in
+`monkey.jungle` (`lint.disable`, `lint.severity.<rule>`):
 
 ```monkeyc
 var radius = 5; // monkey-ignore unused-variable

@@ -5,10 +5,12 @@
 //! lexical (`LEX*`) and syntax (`PARSE*`) diagnostics from the parser.
 
 mod ast;
+mod config;
 mod registry;
 mod suppression;
 mod text;
 
+pub use config::LintConfig;
 pub use monkey_core::Diagnostic;
 pub use registry::{rule, Category, Rule, RULES};
 
@@ -18,33 +20,60 @@ use monkey_parser::parse;
 /// Run all lint rules over Monkey C source. `path` is used for context only.
 ///
 /// Includes text rules, lexical/syntax diagnostics, and AST rules.
-pub fn lint_monkeyc(src: &str, _path: &str) -> Vec<Diagnostic> {
+pub fn lint_monkeyc(src: &str, path: &str) -> Vec<Diagnostic> {
+    lint_monkeyc_config(src, path, &LintConfig::default())
+}
+
+/// [`lint_monkeyc`] with rule configuration applied.
+pub fn lint_monkeyc_config(src: &str, path: &str, config: &LintConfig) -> Vec<Diagnostic> {
+    let _ = path;
     let mut diags = Vec::new();
-    lint_text(src, &mut diags);
+    lint_text_config(src, &mut diags, config);
     let parsed = parse(src);
     // Lexical + parse diagnostics produced by the shared pipeline.
     diags.extend(parsed.diagnostics);
     ast::lint_ast(src, &parsed.file, &mut diags);
     suppression::filter(src, &mut diags, 0);
+    config.apply(&mut diags);
     diags
 }
 
 /// Lint an already-parsed file (skips re-parsing; caller supplies src for
 /// text rules and AST rules).
 pub fn lint_parsed(src: &str, file: &SourceFile, syntax_diags: Vec<Diagnostic>) -> Vec<Diagnostic> {
+    lint_parsed_config(src, file, syntax_diags, &LintConfig::default())
+}
+
+/// [`lint_parsed`] with rule configuration applied.
+pub fn lint_parsed_config(
+    src: &str,
+    file: &SourceFile,
+    syntax_diags: Vec<Diagnostic>,
+    config: &LintConfig,
+) -> Vec<Diagnostic> {
     let mut diags = Vec::new();
-    lint_text(src, &mut diags);
+    lint_text_config(src, &mut diags, config);
     diags.extend(syntax_diags);
     ast::lint_ast(src, file, &mut diags);
     suppression::filter(src, &mut diags, 0);
+    config.apply(&mut diags);
     diags
 }
 
 /// Text-level rules that also apply to Jungle files.
 pub fn lint_text(src: &str, diags: &mut Vec<Diagnostic>) {
+    lint_text_config(src, diags, &LintConfig::default())
+}
+
+/// [`lint_text`] with rule configuration applied.
+pub fn lint_text_config(src: &str, diags: &mut Vec<Diagnostic>, config: &LintConfig) {
     let since = diags.len();
     text::lint_text(src, diags);
     suppression::filter(src, diags, since);
+    // Apply config only to the diagnostics this call added.
+    let mut tail: Vec<Diagnostic> = diags.drain(since..).collect();
+    config.apply(&mut tail);
+    diags.extend(tail);
 }
 
 #[cfg(test)]
