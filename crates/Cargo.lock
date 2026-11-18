@@ -6,10 +6,16 @@ version = 4
 name = "monkey-cli"
 version = "0.1.0"
 dependencies = [
+ "monkey-core",
  "monkey-formatter",
  "monkey-linter",
+ "monkey-parser",
  "monkey-syntax",
 ]
+
+[[package]]
+name = "monkey-core"
+version = "0.1.0"
 
 [[package]]
 name = "monkey-formatter"
@@ -26,5 +32,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "monkey-parser"
+version = "0.1.0"
+dependencies = [
+ "monkey-core",
+ "monkey-syntax",
+]
+
+[[package]]
 name = "monkey-syntax"
 version = "0.1.0"
+dependencies = [
+ "monkey-core",
+]

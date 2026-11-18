@@ -33,24 +33,15 @@ pub struct Token {
     pub start: usize,
     /// Byte offset one past the last character.
     pub end: usize,
+    /// 1-based line of `start` (tracked during lexing; no rescan needed).
+    pub line: u32,
+    /// 1-based column of `start`, counted in characters.
+    pub column: u32,
     /// Number of `\n` characters in the whitespace before this token.
     pub newlines_before: usize,
     /// Whether horizontal whitespace (` ` or `\t`) precedes this token on the
     /// same line. Always false when `newlines_before > 0`.
     pub space_before: bool,
-}
-
-impl Token {
-    /// 1-based line number of the token start.
-    pub fn line(&self, src: &str) -> usize {
-        src[..self.start].bytes().filter(|&b| b == b'\n').count() + 1
-    }
-
-    /// 1-based column of the token start.
-    pub fn column(&self, src: &str) -> usize {
-        let line_start = src[..self.start].rfind('\n').map_or(0, |i| i + 1);
-        self.start - line_start + 1
-    }
 }
 
 /// Monkey C reserved words.

@@ -5,6 +5,7 @@
 //!   monkey lint   [paths...]
 //!   monkey check  [paths...]
 //!   monkey tokens <file>
+//!   monkey parse  [--ast] [--stdin] <file>
 //!
 //! Paths may be files or directories; directories are searched recursively
 //! for `*.mc` and `*.jungle` files.
@@ -29,6 +30,7 @@ COMMANDS:
     lint      Check Monkey C files for issues
     check     Format-check + lint
     tokens    Dump the token stream for a file (debug)
+    parse     Parse Monkey C and report syntax/lexical diagnostics
 
 FORMAT OPTIONS:
     --check            Report which files would change (default for files)
@@ -53,6 +55,7 @@ fn main() -> ExitCode {
         "lint" => cmd_lint(&args[1..], false),
         "check" => cmd_lint(&args[1..], true),
         "tokens" => cmd_tokens(&args[1..]),
+        "parse" => cmd_parse(&args[1..]),
         "-h" | "--help" | "help" => {
             print!("{}", USAGE);
             ExitCode::SUCCESS
@@ -265,13 +268,46 @@ fn cmd_tokens(args: &[String]) -> ExitCode {
     };
     for t in monkey_syntax::lex(&src) {
         let kind = format!("{:?}", t.kind);
-        println!(
-            "{:>4}:{:<4} {:<12} {:?}",
-            t.line(&src),
-            t.column(&src),
-            kind,
-            t.text
-        );
+        println!("{:>4}:{:<4} {:<12} {:?}", t.line, t.column, kind, t.text);
     }
     ExitCode::SUCCESS
+}
+
+/// `monkey parse [--ast] [--stdin] <file>` — run the Monkey C parser and
+/// print lexical + syntax diagnostics. `--ast` dumps the AST instead.
+fn cmd_parse(args: &[String]) -> ExitCode {
+    let use_stdin = args.iter().any(|a| a == "--stdin");
+    let show_ast = args.iter().any(|a| a == "--ast");
+    let path = args.iter().find(|a| !a.starts_with("--")).cloned();
+
+    let (src, label) = if use_stdin {
+        (read_stdin(), "<stdin>".to_string())
+    } else {
+        let Some(p) = path else {
+            eprintln!("monkey: parse requires a file path (or --stdin)");
+            return ExitCode::from(2);
+        };
+        match fs::read_to_string(&p) {
+            Ok(s) => (s, p),
+            Err(_) => {
+                eprintln!("monkey: cannot read {}", p);
+                return ExitCode::from(2);
+            }
+        }
+    };
+
+    let result = monkey_parser::parse(&src);
+    if show_ast {
+        println!("{:#?}", result.file);
+    }
+    let diags = &result.diagnostics;
+    if diags.is_empty() {
+        println!("{}: ok", label);
+        return ExitCode::SUCCESS;
+    }
+    print!("{}", monkey_core::render_diagnostics(&label, &src, diags));
+    let has_error = diags
+        .iter()
+        .any(|d| d.severity == monkey_core::Severity::Error);
+    ExitCode::from(if has_error { 1 } else { 0 })
 }

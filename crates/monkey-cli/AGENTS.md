@@ -6,7 +6,7 @@ parsing is intentional — no clap).
 
 ## Conventions
 
-- Subcommands: `format`, `lint`, `check`, `tokens`. Keep names stable —
+- Subcommands: `format`, `lint`, `check`, `tokens`, `parse`. Keep names stable —
   editor integrations and CI invoke them.
 - `format` default = stdout (rustfmt-style); `--check`/`--write`/`--stdin`
   are the only modes. Exit codes: 0 clean, 1 findings/diffs, 2 usage errors.

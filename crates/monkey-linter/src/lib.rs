@@ -132,8 +132,8 @@ fn lint_request_update(src: &str, diags: &mut Vec<Diagnostic>) {
                     "no-request-update-in-onupdate",
                     Severity::Error,
                     "WatchUi.requestUpdate() inside onUpdate causes a redraw loop; request updates in onShow instead",
-                    t.line(src),
-                    t.column(src),
+                    t.line as usize,
+                    t.column as usize,
                 ));
             }
         }

@@ -1,139 +1,90 @@
-# fr55
+# Monkey
 
 [![CI](https://github.com/hieudoanm/monkey/actions/workflows/ci.yaml/badge.svg?branch=master)](https://github.com/hieudoanm/monkey/actions/workflows/ci.yaml?branch=master) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Topics: `garmin`, `connect-iq`, `monkey-c`, `watchface`, `vscode-extension`
+**The modern, Rust-powered developer toolchain for Garmin Connect IQ and Monkey C.**
 
-![fr55 — Connect IQ watchfaces and tooling for the Garmin Forerunner 55](assets/branding/png/og.png)
+**Live demo:** <https://hieudoanm.github.io/monkey/>
 
-**Live demo:** <https://hieudoanm.github.io/fr55/>
+Monkey provides a fast, zero-dependency CLI plus editor extensions for Monkey C
+development. It formats, lints, parses, and checks Connect IQ projects — and
+delegates building and simulation to the official Garmin SDK.
 
-Connect IQ watchfaces and tooling for the **Garmin Forerunner 55** (`fr55`, 240×240 MIP).
+## What's in this repo
 
-**Keywords:** `Garmin`, `Forerunner 55`, `FR55`, `Connect IQ`, `Monkey C`, `Watchfaces`, `VS Code Extension`, `VSIX`.
+- **[`crates/`](crates/)** — the Rust toolchain workspace:
+  - `monkey-syntax` — UTF-8-safe lexer with tracked positions and lexical diagnostics.
+  - `monkey-parser` — recursive-descent parser, typed AST, error recovery, visitor.
+  - `monkey-core` — shared spans, source maps, and diagnostics.
+  - `monkey-formatter` — Monkey C + Jungle formatter (parity with the VS Code extension formatter).
+  - `monkey-linter` — lint rules (`no-trailing-whitespace`, `no-multiple-empty-lines`, `use-space-indent`, `eof-newline`, `no-request-update-in-onupdate`).
+  - `monkey-cli` — the `monkey` binary: `format`, `lint`, `check`, `tokens`, `parse`.
+- **[`packages/extensions/vscode/`](packages/extensions/vscode/)** — Monkey C/Jungle VS Code extension: syntax highlighting, document formatting, theme, icons, and a Connect IQ SDK/simulator runtime preview.
+- **[`packages/extensions/zed/`](packages/extensions/zed/)** — Monkey C/Jungle Zed extension: Tree-sitter highlighting, external formatter, theme, icons, runtime-preview tasks.
+- **[`packages/landing/`](packages/landing/)** — landing/docs site deployed to GitHub Pages.
+- **[`scripts/`](scripts/)** — install helpers (`install.sh`, `install-local.sh`).
+- **[`.github/workflows/ci.yaml`](.github/workflows/ci.yaml)** — Rust checks, extension packaging, and the rolling `latest` GitHub release.
 
-## What’s in this repo
+## CLI quick start
 
-- **[`apps/`](apps/)** — buildable Connect IQ watchface apps. Each app has its own `manifest.xml`, `monkey.jungle`, `resources/`, `*View.mc`, and `*App.mc` so it can be built/run independently.
-  - `hands/` — analog hour/minute hands.
-  - `minimalism/` — hour/minute dots on a ring with centered heart rate/time.
-  - `maximalism/` — 12-hour dot ring, minute marker, battery + heart rate.
-  - `timezones/` — stacked London, local/Saigon, and Melbourne times.
-- **[`packages/extensions/vscode/`](packages/extensions/vscode/)** — Monkey C/Jungle VS Code extension with syntax highlighting, document formatting, a dark theme, file icons, and a Connect IQ SDK/simulator runtime preview command.
-- **[`packages/extensions/zed/`](packages/extensions/zed/)** — Monkey C/Jungle Zed extension with Tree-sitter highlighting, an external formatter, a dark theme, file icons, and Connect IQ runtime-preview tasks.
-- **[`packages/landing/`](packages/landing/)** — static landing/download page deployed to GitHub Pages.
-- **[`packages/README.md`](packages/README.md)** — overview of the editor extensions.
-- **[`assets/`](assets/)** — shared assets: design previews (`assets/design/svg|png`) and branding (`assets/branding/svg|png`: logo, Open Graph image).
-- **[`crates/`](crates/)** — Rust toolchain for Monkey C/Jungle (lexer, formatter, linter, `monkey` CLI), built with Cargo.
-- **[`scripts/`](scripts/)** — repo helper scripts (`install.sh`, `install-local.sh`).
-- **[`.github/workflows/ci.yaml`](.github/workflows/ci.yaml)** — packages the VS Code extension and publishes a rolling `latest` GitHub release with the VSIX.
+```bash
+cargo install --path crates/monkey-cli   # or download a release binary
+
+monkey format --check .     # report files that would be reformatted
+monkey format --write .     # format in place
+monkey lint .               # lint diagnostics
+monkey check .              # lint + format drift (CI-friendly)
+monkey tokens file.mc       # dump the token stream (debug)
+monkey parse file.mc        # parse and report syntax diagnostics
+monkey parse --ast file.mc  # dump the AST (debug)
+monkey format --stdin       # editor/pipe mode: stdin → stdout
+```
+
+See the [CLI reference](packages/landing/docs/guides/cli-reference.md) for details.
+
+## Editor extensions
+
+- **VS Code**: install `extension-monkey-c.vsix` from the
+  [latest release](https://github.com/hieudoanm/monkey/releases/tag/latest), or
+  build with `pnpm run package` inside `packages/extensions/vscode`.
+- **Zed**: install `extension-monkey-c-zed.zip` from the same release, or add
+  the extension as a dev extension (see `packages/extensions/zed/README.md`).
+
+Both extensions provide syntax highlighting, formatting, and a runtime preview
+that builds and launches apps with the official Connect IQ SDK (`monkeyc`,
+`connectiq`, `monkeydo`). Building requires a Garmin developer key and an
+installed SDK — Monkey does not ship its own compiler or simulator.
 
 ## Repository layout
 
 ```text
 .
-├── .github/workflows/ci.yaml   # package VS Code extension + publish latest VSIX
-├── apps/                       # buildable Connect IQ watchface apps
-│   ├── hands/
-│   ├── maximalism/
-│   ├── minimalism/
-│   └── timezones/
-├── assets/                     # design previews, logos, OG images, svg-to-png.sh
+├── .github/workflows/ci.yaml   # checks + rolling latest release
+├── crates/                     # monkey-* Rust toolchain
+│   ├── monkey-cli/             # `monkey` binary
+│   ├── monkey-core/            # spans, source maps, diagnostics
+│   ├── monkey-syntax/          # lexer + tokens
+│   ├── monkey-parser/          # parser + AST + visitor
+│   ├── monkey-formatter/       # Monkey C / Jungle formatter
+│   └── monkey-linter/          # lint rules
 ├── packages/
 │   ├── README.md               # editor extensions overview
 │   ├── extensions/
-│   │   ├── vscode/             # Monkey C/Jungle VS Code extension
-│   │   └── zed/                # Monkey C/Jungle Zed extension
-│   └── landing/                # GitHub Pages landing page
-├── crates/                     # monkey-* Rust toolchain (format/lint CLI)
-└── scripts/                    # install helper scripts
+│   │   ├── vscode/             # VS Code extension
+│   │   └── zed/                # Zed extension
+│   └── landing/                # GitHub Pages site + docs
+└── scripts/                    # install helpers
 ```
 
-## Build and preview an app
-
-Each app is buildable from its own directory with the Connect IQ SDK.
+## Development
 
 ```bash
-cd apps/hands
-make build                      # builds bin/hands.prg for fr55
-make run                        # builds, starts simulator, launches with monkeydo
+cd crates
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+cargo build --release -p monkey-cli
+./target/release/monkey check ..   # repo root: must be clean
 ```
 
-The app `Makefile`s use configurable variables:
-
-```bash
-make build DEVICE=fr55 \
-  SDK="$HOME/Library/Application Support/Garmin/ConnectIQ/Sdks/<sdk>" \
-  DEVELOPER_KEY="$HOME/.config/garmin/developer_key"
-```
-
-Direct SDK commands also work:
-
-```bash
-monkeyc -f apps/hands/monkey.jungle -d fr55 -o apps/hands/bin/hands.prg -y /path/to/developer_key -w
-monkeydo apps/hands/bin/hands.prg fr55
-```
-
-## VS Code extension
-
-[`packages/extensions/vscode`](packages/extensions/vscode) provides editor support for `.mc` and `.jungle` files:
-
-- Monkey C/Jungle syntax highlighting and language configuration.
-- Built-in document formatting (`Format Document` / `Monkey C: Format Document`).
-- Dark theme and file icons.
-- **Monkey C: Runtime Preview (Simulator)** — builds the nearest Connect IQ package (`monkey.jungle` + `manifest.xml`), starts the simulator, and runs the PRG with `monkeydo`. Configure `monkeyC.sdkPath`, `monkeyC.developerKeyPath`, and `monkeyC.previewDevice` as needed.
-
-Packaging:
-
-```bash
-cd packages/extensions/vscode
-pnpm install --frozen-lockfile
-pnpm exec vsce package --no-dependencies --out monkey-c.vsix
-```
-
-## Zed extension
-
-[`packages/extensions/zed`](packages/extensions/zed) brings the same editor surface to Zed using
-Tree-sitter:
-
-- Monkey C/Jungle highlighting, brackets, indentation, folds, outline, and text objects.
-- External formatter (`monkey-c-format`) for both languages.
-- Dark theme and file icon theme.
-- **Monkey C: Runtime Preview** and **Monkey C: Build PRG** tasks using the Connect IQ SDK/simulator.
-
-```bash
-cd packages/extensions/zed
-./scripts/install.sh   # put monkey-c-format / monkey-c-preview on PATH
-make test              # formatter tests + Jungle grammar tests
-```
-
-See [`packages/extensions/zed/README.md`](packages/extensions/zed/README.md) for Zed formatter
-settings, task usage, and the vendored Jungle grammar requirement.
-
-## Monkey C toolchain
-
-The `crates/` workspace provides a `monkey` CLI for formatting and linting
-`*.mc`/`*.jungle` files (replaces the old `scripts/format.sh`/`lint.sh`).
-
-```bash
-cd crates && cargo build --release
-./target/release/monkey check ..   # lint + format-check the repo
-./target/release/monkey format --write <paths>
-```
-
-## CI and releases
-
-`.github/workflows/ci.yaml` runs for changes under `apps/**`, `crates/**`, `packages/extensions/vscode/**`, `packages/extensions/zed/**`, `packages/landing/**`, and on workflow dispatch. On pushes to `master`, it updates the rolling GitHub release tagged `latest`:
-
-- assets: `extension-monkey-c.vsix` (VS Code), `extension-monkey-c-zed.zip` (Zed), `cli-monkey-*` CLI binaries (Linux/macOS/Windows)
-- release notes: [`RELEASE.md`](RELEASE.md)
-
-## Device notes
-
-- Primary target: **Garmin Forerunner 55** (`fr55`), 240×240, API level target depends on each app manifest.
-- Watchface drawing is generally resolution-independent (`dc.getWidth()` / `dc.getHeight()`), but manifests/products should be checked before targeting other devices.
-- Install a built PRG by copying it to `GARMIN/APPS/` on the watch (USB mass storage) or use Garmin tools/simulator workflows.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
+See [AGENTS.md](AGENTS.md) and [CONTRIBUTING.md](CONTRIBUTING.md) for conventions.

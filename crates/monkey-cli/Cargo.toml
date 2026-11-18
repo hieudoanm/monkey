@@ -11,6 +11,8 @@ name = "monkey"
 path = "src/main.rs"
 
 [dependencies]
+monkey-core = { path = "../monkey-core" }
 monkey-formatter = { path = "../monkey-formatter" }
 monkey-linter = { path = "../monkey-linter" }
+monkey-parser = { path = "../monkey-parser" }
 monkey-syntax = { path = "../monkey-syntax" }

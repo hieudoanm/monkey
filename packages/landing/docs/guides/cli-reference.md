@@ -54,6 +54,17 @@ monkey tokens <file>
 Dumps the lexer token stream for a file. Useful for debugging syntax or
 formatter edge cases.
 
+## parse
+
+```bash
+monkey parse [--ast] [--stdin] <file>
+```
+
+Runs the Monkey C parser and reports lexical and syntax diagnostics
+(`LEX*`/`PARSE*` codes) with source spans. `--ast` dumps the parsed abstract
+syntax tree; `--stdin` reads source from stdin. The parser is permissive —
+it recovers from errors so it works on incomplete code.
+
 ## Exit codes
 
 - `0` — clean.

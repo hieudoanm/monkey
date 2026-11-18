@@ -10,7 +10,7 @@ Diagnostic rules for Monkey C. Part of the `monkey-*` toolchain workspace.
 - Rule ids are stable public API (`no-trailing-whitespace`, etc.) — do not
   rename without checking `monkey-cli` output consumers.
 - Diagnostics carry 1-based line/column; compute them from token offsets via
-  `Token::line`/`Token::column`, never by re-scanning.
+  `Token.line`/`Token.column` fields (tracked during lexing), never by re-scanning.
 - When a rule needs function/block context, use a brace stack that inherits
   enclosing names for non-function blocks (see `lint_request_update`).
 

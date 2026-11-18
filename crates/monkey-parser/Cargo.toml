@@ -1,0 +1,11 @@
+[package]
+name = "monkey-parser"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Recursive-descent parser and AST for the Monkey C language"
+
+[dependencies]
+monkey-core = { path = "../monkey-core" }
+monkey-syntax = { path = "../monkey-syntax" }

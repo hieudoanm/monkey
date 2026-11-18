@@ -7,3 +7,4 @@ repository.workspace = true
 description = "Lexer and token model for the Monkey C language"
 
 [dependencies]
+monkey-core = { path = "../monkey-core" }

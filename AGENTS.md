@@ -9,11 +9,13 @@ Garmin Connect IQ.
 
 ## Layout
 
-- `crates/` — Rust workspace with the `monkey-*` toolchain (zero dependencies):
-  - `monkey-syntax` — Monkey C lexer/token model.
+- `crates/` — Rust workspace with the `monkey-*` toolchain (path dependencies only, no external crates):
+  - `monkey-core` — shared `Span`, `SourceMap`, `Diagnostic`, terminal/JSON renderers.
+  - `monkey-syntax` — Monkey C lexer/token model (`lex`, `lex_full` with diagnostics).
+  - `monkey-parser` — recursive-descent parser, typed AST (`ast`), visitor (`visit`), error recovery.
   - `monkey-formatter` — Monkey C + Jungle formatter (parity with the extension formatter).
   - `monkey-linter` — lint rules (`no-trailing-whitespace`, `no-multiple-empty-lines`, `use-space-indent`, `eof-newline`, `no-request-update-in-onupdate`).
-  - `monkey-cli` — `monkey` binary: `format`, `lint`, `check`, `tokens` subcommands.
+  - `monkey-cli` — `monkey` binary: `format`, `lint`, `check`, `tokens`, `parse` subcommands.
 - `packages/extensions/vscode/` — VS Code extension for Monkey C/Jungle (TypeScript). Has its own `AGENTS.md` and README.
 - `packages/extensions/zed/` — Zed extension for Monkey C/Jungle (Tree-sitter, theme, icons, formatter CLI, runtime-preview task). Has its own `AGENTS.md` and README.
 - `packages/landing/` — Next.js static-export landing page deployed to GitHub Pages. Has its own `AGENTS.md`.

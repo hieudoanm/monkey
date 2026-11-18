@@ -1,7 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
+    "monkey-core",
     "monkey-syntax",
+    "monkey-parser",
     "monkey-formatter",
     "monkey-linter",
     "monkey-cli",
