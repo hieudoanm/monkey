@@ -262,8 +262,10 @@ Runs a language server over stdio (LSP, full document sync). Capabilities:
 - **`textDocument/hover`** — markdown signature/kind for the declaration
   under the cursor (params and enum members included).
 - **`textDocument/definition`** — jump to a declaration, across files.
-- **`textDocument/completion`** — Monkey C keywords plus all declared
-  names in the document and project.
+- **`textDocument/completion`** — Monkey C keywords, statement snippets
+  (`fn`, `class`, `if`, `for`, `while`, `try`, `var`, `method` — LSP
+  snippet syntax with tab stops), and all declared names in the document
+  and project.
 - **`textDocument/references`** — find-references across the project,
   member-aware for `X.name` uses.
 - **`textDocument/formatting`** and **`textDocument/rangeFormatting`** —
