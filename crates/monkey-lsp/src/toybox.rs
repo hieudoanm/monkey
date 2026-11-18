@@ -52,6 +52,20 @@ impl ToyboxDb {
         ToyboxDb { members }
     }
 
+    /// Resolve a bare type/module name to a dotted owner path.
+    /// `"String"` → `"Toybox.Lang.String"`, `"Dc"` → `"Toybox.WatchUi.Dc"`.
+    /// Exact `"Toybox.X"`/`"X"` matches win; otherwise the first owner whose
+    /// last segment matches (deterministic — BTreeMap order).
+    pub fn find_owner(&self, base: &str) -> Option<String> {
+        for cand in [format!("Toybox.{}", base), base.to_string()] {
+            if self.members.contains_key(&cand) {
+                return Some(cand);
+            }
+        }
+        let suffix = format!(".{}", base);
+        self.members.keys().find(|k| k.ends_with(&suffix)).cloned()
+    }
+
     /// Member names of `owner` (e.g. `"Toybox.Math"`), sorted.
     pub fn members_of(&self, owner: &str) -> Vec<String> {
         self.members

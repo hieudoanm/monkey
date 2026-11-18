@@ -738,11 +738,11 @@ impl Server {
                         .then(|| base.to_string())
                 })
         };
-        if let Some(cname) = class_name {
+        if let Some(cname) = &class_name {
             // The class may live in another file — search the index.
             let idx = self.project_index();
             for f in &idx.files {
-                let found = intel::class_members(&f.src, &cname);
+                let found = intel::class_members(&f.src, cname);
                 if !found.is_empty() {
                     members = found;
                     break;
@@ -750,7 +750,9 @@ impl Server {
             }
         }
         if members.is_empty() {
-            members = self.toybox_members(base);
+            // Prefer the resolved type name (`s: String` → Toybox String
+            // members); fall back to the base identifier itself.
+            members = self.toybox_members(class_name.as_deref().unwrap_or(base));
         }
         let items: Vec<Value> = members
             .iter()
@@ -808,6 +810,23 @@ impl Server {
                 .into_iter()
                 .map(|m| (m, "module"))
                 .collect();
+        }
+        // Bare type names (`String`, `Dc`, `View`) → resolve via the SDK DB.
+        if let Some(owner) = db.find_owner(base) {
+            let ms = db.members_of(&owner);
+            if !ms.is_empty() {
+                return ms
+                    .into_iter()
+                    .map(|m| {
+                        let kind = if m.chars().all(|c| !c.is_lowercase()) {
+                            "field"
+                        } else {
+                            "method"
+                        };
+                        (m, kind)
+                    })
+                    .collect();
+            }
         }
         Vec::new()
     }
@@ -1237,6 +1256,42 @@ mod tests {
             .map(|e| e["range"]["start"]["line"].as_u64().unwrap())
             .collect();
         assert!(lines.iter().all(|l| *l <= 3), "lines: {:?}", lines);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn references_field_ignores_shadowing_local() {
+        let src = "class A {\n  var count = 0;\n  function f() {\n    var count = 1;\n    count = count + 1;\n    this.count = this.count + 1;\n  }\n}\n";
+        let dir = std::env::temp_dir().join(format!("monkey-lsp-shadow-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("s.mc"), src).unwrap();
+        let uri = index::path_to_uri(&dir.join("s.mc"));
+        let mut s = Server::new();
+        s.handle(&msg(
+            "initialize",
+            json!({"workspaceFolders": [{"uri": index::path_to_uri(&dir), "name": "t"}]}),
+            Some(0),
+        ));
+        s.handle(&msg(
+            "textDocument/didOpen",
+            json!({"textDocument": {"uri": uri, "languageId": "monkeyc", "version": 1, "text": src}}),
+            None,
+        ));
+        // References on the field decl `count` (line 1, char 6).
+        let out = s.handle(&msg(
+            "textDocument/references",
+            json!({"textDocument": {"uri": uri}, "position": {"line": 1, "character": 6},
+                   "context": {"includeDeclaration": false}}),
+            Some(1),
+        ));
+        let locs = out.response.unwrap()["result"].as_array().unwrap().clone();
+        let lines: Vec<u64> = locs
+            .iter()
+            .map(|l| l["range"]["start"]["line"].as_u64().unwrap())
+            .collect();
+        // Local `count` uses (lines 3-4 bare) must be excluded; only the
+        // `this.count` member uses (line 5) count.
+        assert!(lines.iter().all(|l| *l == 5), "lines: {:?}", lines);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

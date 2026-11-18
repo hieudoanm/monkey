@@ -156,9 +156,11 @@ type, `minApiLevel`, entry point, and jungle properties.
 
 `check` validates `manifest.xml` against the discovered Connect IQ SDK:
 product IDs against `Devices/` profiles, `minApiLevel` against each
-device's API level, and app `type` against supported app types. Reports
-warnings for unknown products and errors for incompatible targets;
-exits 1 on findings.
+device's API level, and app `type` against supported app types — plus an
+API-availability pass that resolves `Toybox.*` references in every `.mc`
+file (via `using` bindings) against each product's
+`<device>.api.debug.xml` surface and reports `[api-unavailable]` errors
+for symbols missing on a target device. Exits 1 on findings.
 
 ## new
 
@@ -188,9 +190,11 @@ failure; intended for CI and pre-commit.
 With `--run`: compiles with `monkeyc -t` (unit-test mode), launches the
 simulator, and executes `Toybox.Test` tests via `monkeydo -t`. `--test
 <name>` runs a single `(:test)`-annotated method; `--no-simulator` assumes
-a simulator is already running (physical devices). Note `monkeydo -t`
-exits non-zero even when tests pass — Monkey parses the RESULTS summary
-instead.
+a simulator is already running (physical devices). Per-test results are
+parsed from the RESULTS block — failures emit `::error::` GitHub Actions
+annotations and a markdown table is appended to `$GITHUB_STEP_SUMMARY`.
+Note `monkeydo -t` exits non-zero even when tests pass — Monkey parses the
+summary instead.
 
 ## build
 

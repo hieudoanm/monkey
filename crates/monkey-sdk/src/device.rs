@@ -3,6 +3,7 @@
 //! Each device is a directory containing `compiler.json` (capabilities,
 //! display name) and `simulator.json` (simulator metadata).
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -107,6 +108,135 @@ pub fn list_devices() -> Vec<Device> {
     }
     devices.sort_by(|a, b| a.id.cmp(&b.id));
     devices
+}
+
+/// The set of Toybox API symbols available on a specific device, parsed
+/// from its `<id>.api.debug.xml` (same `<entry parent="..." symbol="..."/>`
+/// format as the SDK-wide `api.debug.xml`).
+#[derive(Clone, Debug, Default)]
+pub struct ApiSurface {
+    /// `"Toybox.Math.cos"`-style fully-qualified member names.
+    pub symbols: std::collections::HashSet<String>,
+    /// Dotted owner paths that exist on the device
+    /// (`"Toybox"`, `"Toybox.Math"`, `"Toybox.WatchUi.Dc"`, ...).
+    pub owners: std::collections::HashSet<String>,
+}
+
+fn xml_attr(tag: &str, name: &str) -> Option<String> {
+    let pat = format!("{}=\"", name);
+    let i = tag.find(&pat)? + pat.len();
+    let rest = &tag[i..];
+    let j = rest.find('"')?;
+    Some(rest[..j].to_string())
+}
+
+impl Device {
+    /// Parse this device's API surface from `<id>.api.debug.xml` in its
+    /// device directory (falls back to any `*.api.debug.xml` present).
+    ///
+    /// The file mixes three relevant sections:
+    /// - `dataEntryOffsetMappings` — the symbol tree (`symbolId`/`parentId`)
+    ///   used to resolve unqualified scope names to `Toybox.A.B` paths.
+    /// - `pcToLineNum` — `<entry parent="Toybox_A_B" symbol="m"/>` qualified
+    ///   class/module members.
+    /// - `functions` — `<functionEntry parent="Scope" name="m"/>` members
+    ///   under unqualified scope names resolved via the symbol tree.
+    pub fn api_surface(&self) -> Option<ApiSurface> {
+        let named = self.dir.join(format!("{}.api.debug.xml", self.id));
+        let path = if named.is_file() {
+            named
+        } else {
+            fs::read_dir(&self.dir)
+                .ok()?
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .find(|p| {
+                    p.extension().is_some_and(|x| x == "xml")
+                        && p.file_name()
+                            .is_some_and(|n| n.to_string_lossy().ends_with(".api.debug.xml"))
+                })?
+        };
+        let text = fs::read_to_string(path).ok()?;
+        let mut surface = ApiSurface::default();
+
+        // 1. Symbol tree: symbolId → parentId.
+        let mut parents: HashMap<String, String> = HashMap::new();
+        for m in text.match_indices("<dataEntry ") {
+            let tag = text[m.0..].split('>').next().unwrap_or("");
+            let (Some(id), Some(pid)) = (xml_attr(tag, "symbolId"), xml_attr(tag, "parentId"))
+            else {
+                continue;
+            };
+            parents.insert(id, pid);
+        }
+        // Dotted path for a symbolId, e.g. "Dc" → "Toybox.Graphics.Dc".
+        // `globals` is the synthetic root.
+        fn path_of(
+            id: &str,
+            parents: &HashMap<String, String>,
+            memo: &mut HashMap<String, String>,
+            depth: usize,
+        ) -> String {
+            if let Some(p) = memo.get(id) {
+                return p.clone();
+            }
+            // Depth cap guards against parentId cycles in the data.
+            if id == "globals" || depth > 16 {
+                return String::new();
+            }
+            let parent = parents.get(id).cloned().unwrap_or_default();
+            let base = if parent.is_empty() {
+                String::new()
+            } else {
+                path_of(&parent, parents, memo, depth + 1)
+            };
+            let full = if base.is_empty() {
+                id.to_string()
+            } else {
+                format!("{}.{}", base, id)
+            };
+            memo.insert(id.to_string(), full.clone());
+            full
+        }
+        let mut memo = HashMap::new();
+        for id in parents.keys() {
+            let p = path_of(id, &parents, &mut memo, 0);
+            surface.owners.insert(p);
+        }
+        // "Toybox" itself is always an owner.
+        surface.owners.insert("Toybox".to_string());
+
+        // 2. Qualified members from pcToLineNum entries.
+        for chunk in text.split("<entry ").skip(1) {
+            let tag = chunk.split('>').next().unwrap_or("");
+            let (Some(parent), Some(symbol)) = (xml_attr(tag, "parent"), xml_attr(tag, "symbol"))
+            else {
+                continue;
+            };
+            if symbol.contains("&lt;") || !parent.starts_with("Toybox") {
+                continue;
+            }
+            let owner = parent.replace('_', ".");
+            surface.owners.insert(owner.clone());
+            surface.symbols.insert(format!("{}.{}", owner, symbol));
+        }
+
+        // 3. Members under unqualified scope names from <functions>.
+        for m in text.match_indices("<functionEntry ") {
+            let tag = text[m.0..].split('>').next().unwrap_or("");
+            let (Some(scope), Some(name)) = (xml_attr(tag, "parent"), xml_attr(tag, "name")) else {
+                continue;
+            };
+            if name.contains("&lt;") {
+                continue;
+            }
+            let owner = path_of(&scope, &parents, &mut memo, 0);
+            if owner.is_empty() {
+                continue;
+            }
+            surface.symbols.insert(format!("{}.{}", owner, name));
+        }
+        Some(surface)
+    }
 }
 
 /// Find a device by id (exact match; also matches `deviceFamily`/`displayName`

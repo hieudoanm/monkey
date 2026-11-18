@@ -286,18 +286,77 @@ pub fn test_run(
     print!("{}", stdout);
     eprint!("{}", stderr);
 
-    // Look for the RESULTS block: "PASSED (passed=N, failed=0, errors=0)" or
-    // "FAILED (...)". Fall back to scanning per-test PASS/FAIL lines.
-    let failed = stdout.contains("FAILED")
-        || stdout.lines().any(|l| l.trim_end().ends_with("FAIL"))
-        || stdout.lines().any(|l| l.contains(" ERROR"));
+    // Parse per-test results from the RESULTS block:
+    //   Test:                               Status:
+    //   TestAppTests.testBasic              PASS
+    let mut results: Vec<(String, String)> = Vec::new();
+    let mut in_results = false;
+    for line in stdout.lines() {
+        let t = line.trim();
+        if t == "RESULTS" || t.starts_with("Test:") {
+            in_results = true;
+            continue;
+        }
+        if in_results {
+            if t.starts_with("Ran ") || t.starts_with("PASSED") || t.starts_with("FAILED") {
+                break;
+            }
+            // "Name<spaces>STATUS" — status is the last token.
+            if let Some(status) = ["PASS", "FAIL", "ERROR", "SKIP"]
+                .iter()
+                .find(|s| t.ends_with(**s))
+            {
+                let name = t[..t.len() - status.len()].trim().to_string();
+                if !name.is_empty() && name != "Test:" {
+                    results.push((name, status.to_string()));
+                }
+            }
+        }
+    }
+
+    // GitHub Actions annotations + step summary for CI.
+    let failures: Vec<&(String, String)> = results
+        .iter()
+        .filter(|(_, s)| s != "PASS" && s != "SKIP")
+        .collect();
+    for (name, status) in &failures {
+        println!("::error::Test {} {}", name, status);
+    }
+    if let Ok(summary) = std::env::var("GITHUB_STEP_SUMMARY") {
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(summary)
+        {
+            let _ = writeln!(f, "### monkey test — {}\n", plan.device);
+            let _ = writeln!(f, "| Test | Status |");
+            let _ = writeln!(f, "|---|---|");
+            for (name, status) in &results {
+                let _ = writeln!(f, "| `{}` | {} |", name, status);
+            }
+            let _ = writeln!(f);
+        }
+    }
+
     let ran_tests = stdout.contains("RESULTS") || stdout.contains("Executing test");
-    if ran_tests && !failed {
-        eprintln!("monkey: tests passed on {}", plan.device);
-        0
-    } else if ran_tests {
-        eprintln!("monkey: tests failed on {}", plan.device);
+    // Fallback when per-test lines couldn't be parsed: any FAILED marker.
+    let unparseable_failure = results.is_empty()
+        && (stdout.contains("FAILED") || stdout.lines().any(|l| l.trim_end().ends_with("FAIL")));
+    if ran_tests && (!failures.is_empty() || unparseable_failure) {
+        eprintln!(
+            "monkey: {} test(s) failed on {}",
+            failures.len(),
+            plan.device
+        );
         1
+    } else if ran_tests {
+        eprintln!(
+            "monkey: {} test(s) passed on {}",
+            results.len(),
+            plan.device
+        );
+        0
     } else {
         eprintln!(
             "monkey: monkeydo produced no test output (exit {}) — is the simulator running?",

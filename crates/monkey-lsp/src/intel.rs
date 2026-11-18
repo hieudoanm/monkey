@@ -126,8 +126,13 @@ fn params_text(f: &FunctionDecl) -> String {
 /// Last path segment of a `TypeRef::Path`, e.g. `Dc` from `Toybox.Dc`.
 fn type_name_of(t: &TypeRef) -> Option<String> {
     match t {
-        TypeRef::Path { path, .. } => path.last().map(|i| i.text.clone()),
-        _ => None,
+        TypeRef::Path { path, .. } | TypeRef::Generic { path, .. } => {
+            path.last().map(|i| i.text.clone())
+        }
+        TypeRef::Array { .. } => Some("Array".to_string()),
+        TypeRef::Union { variants, .. } => variants.first().and_then(type_name_of),
+        TypeRef::Method { .. } => Some("Method".to_string()),
+        TypeRef::Dict { .. } => Some("Dictionary".to_string()),
     }
 }
 
@@ -143,9 +148,65 @@ fn function_detail(f: &FunctionDecl, kind: &str) -> String {
 struct Collector {
     decls: Vec<Decl>,
     class_stack: Vec<String>,
+    /// function/method name → return type text, for `var x = f()` inference.
+    fn_returns: std::collections::HashMap<String, String>,
+}
+
+fn collect_fn_returns_item(item: &Item, out: &mut std::collections::HashMap<String, String>) {
+    match item {
+        Item::Function(f) => {
+            let ty = type_text(&f.return_type);
+            if !ty.is_empty() {
+                out.insert(f.name.text.clone(), ty);
+            }
+        }
+        Item::Class(c) => {
+            for m in &c.members {
+                match m {
+                    ClassMember::Function(f) => {
+                        let ty = type_text(&f.return_type);
+                        if !ty.is_empty() {
+                            out.insert(f.name.text.clone(), ty);
+                        }
+                    }
+                    ClassMember::Class(inner) => {
+                        collect_fn_returns_item(&Item::Class((**inner).clone()), out)
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Item::Module(m) => {
+            for i in &m.members {
+                collect_fn_returns_item(i, out);
+            }
+        }
+        _ => {}
+    }
 }
 
 impl Collector {
+    /// Infer an expression's type name where cheaply possible.
+    fn infer_expr(&self, e: &Expr) -> Option<String> {
+        match e {
+            Expr::New { type_, .. } => type_name_of(type_),
+            Expr::Cast { type_, .. } => type_name_of(type_),
+            Expr::Call { callee, .. } => match callee.as_ref() {
+                Expr::Ident(i) => self.fn_returns.get(&i.text).cloned(),
+                _ => None,
+            },
+            Expr::Literal(Literal::Str { .. } | Literal::Char { .. }) => Some("String".to_string()),
+            Expr::Literal(Literal::Number { .. }) => Some("Number".to_string()),
+            Expr::Literal(Literal::Bool { .. }) => Some("Boolean".to_string()),
+            Expr::Array { .. } => Some("Array".to_string()),
+            Expr::Dict { .. } => Some("Dictionary".to_string()),
+            Expr::Paren { expr, .. } | Expr::Postfix { expr, .. } | Expr::Unary { expr, .. } => {
+                self.infer_expr(expr)
+            }
+            _ => None,
+        }
+    }
+
     fn push(&mut self, name: &Ident, kind: &'static str, detail: String) {
         self.decls.push(Decl {
             name: name.text.clone(),
@@ -177,22 +238,25 @@ impl Visitor for Collector {
     }
 
     fn visit_field(&mut self, f: &FieldDecl) {
+        let inferred = f
+            .type_ann
+            .as_ref()
+            .and_then(type_name_of)
+            .or_else(|| f.init.as_ref().and_then(|e| self.infer_expr(e)));
         let ty = type_text(&f.type_ann);
-        let detail = if ty.is_empty() {
+        let shown = if ty.is_empty() {
+            inferred.clone().unwrap_or_default()
+        } else {
+            ty
+        };
+        let detail = if shown.is_empty() {
             format!("var {}", f.name.text)
         } else {
-            format!("var {}: {}", f.name.text, ty)
+            format!("var {}: {}", f.name.text, shown)
         };
         let n = self.decls.len();
         self.push(&f.name, "field", detail);
-        self.decls[n].type_name =
-            f.type_ann
-                .as_ref()
-                .and_then(type_name_of)
-                .or_else(|| match &f.init {
-                    Some(Expr::New { type_, .. }) => type_name_of(type_),
-                    _ => None,
-                });
+        self.decls[n].type_name = inferred;
         for a in &f.annotations {
             self.visit_annotation(a);
         }
@@ -246,23 +310,27 @@ impl Visitor for Collector {
     }
 
     fn visit_var_decl(&mut self, d: &VarDecl) {
+        let inferred = d
+            .type_ann
+            .as_ref()
+            .and_then(type_name_of)
+            .or_else(|| d.init.as_ref().and_then(|e| self.infer_expr(e)));
         let ty = type_text(&d.type_ann);
         let kw = if d.mutable { "var" } else { "const" };
-        let detail = if ty.is_empty() {
+        // Prefer the annotation text; fall back to the inferred type name.
+        let shown = if ty.is_empty() {
+            inferred.clone().unwrap_or_default()
+        } else {
+            ty
+        };
+        let detail = if shown.is_empty() {
             format!("{} {}", kw, d.name.text)
         } else {
-            format!("{} {}: {}", kw, d.name.text, ty)
+            format!("{} {}: {}", kw, d.name.text, shown)
         };
         let n = self.decls.len();
         self.push(&d.name, "variable", detail);
-        self.decls[n].type_name =
-            d.type_ann
-                .as_ref()
-                .and_then(type_name_of)
-                .or_else(|| match &d.init {
-                    Some(Expr::New { type_, .. }) => type_name_of(type_),
-                    _ => None,
-                });
+        self.decls[n].type_name = inferred;
         for a in &d.annotations {
             self.visit_annotation(a);
         }
@@ -275,9 +343,15 @@ impl Visitor for Collector {
 /// Collect every named declaration in `src` (parsed on demand).
 pub fn collect_decls(src: &str) -> Vec<Decl> {
     let parsed = monkey_parser::parse(src);
+    // Pre-pass: function/method return types for `var x = f()` inference.
+    let mut fn_returns = std::collections::HashMap::new();
+    for i in &parsed.file.items {
+        collect_fn_returns_item(i, &mut fn_returns);
+    }
     let mut c = Collector {
         decls: Vec::new(),
         class_stack: Vec::new(),
+        fn_returns,
     };
     c.visit_source_file(&parsed.file);
     c.decls
@@ -659,9 +733,22 @@ struct UseCollector {
     name: String,
     member: bool,
     /// Span of the declaring class body; bare-ident uses outside it are
-    /// ignored in member mode.
+    /// ignored in member mode. Also reused as a function-scope restriction
+    /// for local variable/param references.
     class_span: Option<Span>,
+    /// Function spans containing a same-named local/param declaration.
+    /// Bare-ident uses inside them bind to the local, not a member —
+    /// excluded in member mode (fields/methods shadowed by locals).
+    shadowed: Vec<Span>,
     uses: Vec<Span>,
+}
+
+impl UseCollector {
+    /// True when `offset` falls inside a scope where a same-named local
+    /// shadows the member being collected.
+    fn shadowed_at(&self, offset: usize) -> bool {
+        self.shadowed.iter().any(|s| span_contains(*s, offset))
+    }
 }
 
 impl Visitor for UseCollector {
@@ -675,7 +762,7 @@ impl Visitor for UseCollector {
                     Some(cs) => span_contains(cs, i.span.start as usize),
                     None => true,
                 };
-                if inside {
+                if inside && !self.shadowed_at(i.span.start as usize) {
                     self.uses.push(i.span);
                 }
             }
@@ -689,7 +776,7 @@ impl Visitor for UseCollector {
                             Some(cs) => span_contains(cs, seg.span.start as usize),
                             None => true,
                         };
-                        if inside {
+                        if inside && !self.shadowed_at(seg.span.start as usize) {
                             self.uses.push(seg.span);
                         }
                     }
@@ -848,10 +935,22 @@ pub fn class_span(src: &str, name: &str) -> Option<Span> {
 /// `class_span` (the declaring class body) when provided.
 pub fn uses_in_mode(src: &str, name: &str, member: bool, class_span: Option<Span>) -> Vec<Span> {
     let parsed = monkey_parser::parse(src);
+    // In member mode, find functions where a same-named local/param shadows
+    // the member — bare uses there belong to the local.
+    let shadowed = if member {
+        collect_decls(src)
+            .iter()
+            .filter(|d| d.name == name && matches!(d.kind, "variable" | "param"))
+            .filter_map(|d| enclosing_fn_span(src, d.name_span))
+            .collect()
+    } else {
+        Vec::new()
+    };
     let mut c = UseCollector {
         name: name.to_string(),
         member,
         class_span,
+        shadowed,
         uses: Vec::new(),
     };
     c.visit_source_file(&parsed.file);
