@@ -316,6 +316,43 @@ fn span_contains(span: Span, offset: usize) -> bool {
     offset >= span.start as usize && offset < span.end as usize
 }
 
+fn fn_spans_item(item: &Item, out: &mut Vec<Span>) {
+    match item {
+        Item::Function(f) => out.push(f.span),
+        Item::Class(c) => fn_spans_class(c, out),
+        Item::Module(m) => {
+            for i in &m.members {
+                fn_spans_item(i, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn fn_spans_class(c: &ClassDecl, out: &mut Vec<Span>) {
+    for m in &c.members {
+        match m {
+            ClassMember::Function(f) => out.push(f.span),
+            ClassMember::Class(inner) => fn_spans_class(inner, out),
+            _ => {}
+        }
+    }
+}
+
+/// Span of the innermost function/method containing `inner`, if any.
+/// Used to scope local variable/param references to their function body.
+pub fn enclosing_fn_span(src: &str, inner: Span) -> Option<Span> {
+    let parsed = monkey_parser::parse(src);
+    let mut spans = Vec::new();
+    for i in &parsed.file.items {
+        fn_spans_item(i, &mut spans);
+    }
+    spans
+        .into_iter()
+        .filter(|s| inner.start >= s.start && inner.end <= s.end && s.end - s.start > 0)
+        .min_by_key(|s| s.end - s.start)
+}
+
 fn range_json(src: &str, span: Span) -> Value {
     json!({
         "start": position_at_byte(src, span.start as usize),
@@ -585,10 +622,12 @@ impl Visitor for UseCollector {
     fn visit_expr(&mut self, e: &Expr) {
         match e {
             Expr::Ident(i) if i.text == self.name => {
-                let inside = match (self.member, self.class_span) {
-                    (true, Some(cs)) => span_contains(cs, i.span.start as usize),
-                    (true, None) => true,
-                    (false, _) => true,
+                // `class_span` doubles as a scope restriction: member mode
+                // uses it for the declaring class; local mode for the
+                // enclosing function. `None` means unrestricted.
+                let inside = match self.class_span {
+                    Some(cs) => span_contains(cs, i.span.start as usize),
+                    None => true,
                 };
                 if inside {
                     self.uses.push(i.span);
@@ -596,9 +635,17 @@ impl Visitor for UseCollector {
             }
             Expr::Path { segments, .. } => {
                 // `Foo.bar` / `Enum.MEMBER` — any segment may be the use.
+                // Same scope rules as bare idents (single-segment paths are
+                // how plain identifiers often parse).
                 for seg in segments {
                     if seg.text == self.name {
-                        self.uses.push(seg.span);
+                        let inside = match self.class_span {
+                            Some(cs) => span_contains(cs, seg.span.start as usize),
+                            None => true,
+                        };
+                        if inside {
+                            self.uses.push(seg.span);
+                        }
                     }
                 }
             }
