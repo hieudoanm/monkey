@@ -587,6 +587,52 @@ pub fn completion(src: &str) -> Value {
     for kw in monkey_syntax::KEYWORDS {
         push(kw, KIND_KEYWORD, "keyword", &mut items);
     }
+    // Statement/decl snippets — LSP snippet syntax (${1:placeholder}, $0).
+    const SNIPPETS: &[(&str, &str, &str)] = &[
+        (
+            "fn",
+            "function ${1:name}(${2:params}) as ${3:Void} {\n\t$0\n}",
+            "snippet: function",
+        ),
+        (
+            "class",
+            "class ${1:Name} {\n\tfunction initialize() {\n\t\t${2:}\n\t}\n\t$0\n}",
+            "snippet: class",
+        ),
+        ("if", "if (${1:condition}) {\n\t$0\n}", "snippet: if"),
+        (
+            "for",
+            "for (var ${1:i} = 0; ${1:i} < ${2:n}; ${1:i}++) {\n\t$0\n}",
+            "snippet: for",
+        ),
+        (
+            "while",
+            "while (${1:condition}) {\n\t$0\n}",
+            "snippet: while",
+        ),
+        (
+            "try",
+            "try {\n\t$0\n} catch (e) {\n\t\n}",
+            "snippet: try/catch",
+        ),
+        ("var", "var ${1:name} = ${2:value};", "snippet: variable"),
+        (
+            "method",
+            "function ${1:name}(${2:params}) as ${3:Void} {\n\t$0\n}",
+            "snippet: method",
+        ),
+    ];
+    for (label, insert, detail) in SNIPPETS {
+        // No `seen` dedup: snippet labels intentionally shadow keyword
+        // labels so both a plain keyword and a snippet variant are offered.
+        items.push(json!({
+            "label": label,
+            "kind": 15, // Snippet
+            "detail": detail,
+            "insertText": insert,
+            "insertTextFormat": 2,
+        }));
+    }
     for d in &decls {
         let kind = match d.kind {
             "class" => KIND_CLASS,
