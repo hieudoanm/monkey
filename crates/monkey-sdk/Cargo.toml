@@ -1,0 +1,10 @@
+[package]
+name = "monkey-sdk"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Garmin Connect IQ SDK and device discovery"
+
+[dependencies]
+serde_json = "1"

@@ -17,7 +17,6 @@ class ExampleView extends WatchUi.WatchFace {
   function onUpdate(dc as Dc) as Void {
     var screenWidth = dc.getWidth();
     var screenHeight = dc.getHeight();
-    var radius = 240 / 3.14;
 
     // Greeting
     dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_BLACK);

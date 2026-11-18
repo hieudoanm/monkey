@@ -1,7 +1,8 @@
 # monkey-cli
 
 `monkey` — command-line interface for the Monkey C toolchain. Thin wrapper
-over `monkey-syntax`, `monkey-formatter`, and `monkey-linter`.
+over the `monkey-*` crates (`syntax`, `formatter`, `linter`, `parser`,
+`project`, `sdk`, `core`).
 
 ## Build
 
@@ -17,6 +18,11 @@ monkey format [--check|--write] [--stdin] [--indent-spaces N|--indent-tabs] [pat
 monkey lint   [paths...]
 monkey check  [paths...]
 monkey tokens <file>
+monkey parse  [--ast] [--stdin] <file>
+monkey doctor [--sdk <path>] [--key <path>] [path]
+monkey sdk    list|detect|info
+monkey device list|info <id>
+monkey project info [path]
 ```
 
 - `format` — default prints formatted source to stdout; `--check` reports
@@ -27,6 +33,15 @@ monkey tokens <file>
 - `check` — `lint` plus a format-drift check (superset of the old
   `scripts/lint.sh`).
 - `tokens` — dumps the lexer token stream for debugging.
+- `parse` — lexer/parser diagnostics (`LEX*`/`PARSE*`); `--ast` dumps the AST.
+- `doctor` — verifies SDK, developer key, devices, and project setup.
+- `sdk` — `list` all SDKs, `detect` the resolved one, `info` on tools/version.
+- `device` — list Connect IQ device profiles or show one device.
+- `project` — `info` shows the discovered project's manifest/jungle details.
+
+SDK and key resolution mirrors the editor extensions: explicit flag →
+`MONKEYC_SDK_PATH`/`MONKEY_SDK` and `MONKEYC_DEVELOPER_KEY`/`MONKEY_KEY` env
+vars → `current-sdk.cfg` / standard Garmin paths → newest SDK under `Sdks/`.
 
 Paths may be files or directories; directories are searched recursively for
 `*.mc` and `*.jungle` (skipping `node_modules`, `target`, `.git`).
