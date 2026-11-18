@@ -18,8 +18,8 @@ Part of the `monkey-*` toolchain workspace.
 - `intel.rs` collects declarations via `monkey-parser`'s `Visitor` —
   classes, methods, fields, enums, functions, vars, params. Jungle
   documents get diagnostics only (language features return empty/null).
-- Definition/references/rename are same-file only; no cross-file
-  index yet.
+- The index rebuilds on any document change — fine for watchface-sized
+  projects; very large trees may want incremental indexing later.
 - Formatting delegates to `monkey-formatter` and returns a single
   full-document TextEdit (null when already formatted).
 - Deps: `monkey-core`, `monkey-formatter`, `monkey-linter`,

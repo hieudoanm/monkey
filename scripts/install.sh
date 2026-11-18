@@ -1,31 +1,108 @@
 #!/usr/bin/env bash
 #
-# install.sh — Install the monkey-c VS Code extension from the latest GitHub
-# release .vsix package.
+# install.sh — Install Monkey from the latest GitHub release.
+#
+# Installs, by default:
+#   1. the `monkey` CLI binary into ~/.local/bin
+#   2. the VS Code extension (.vsix) when the `code` CLI is available
+#   3. the Zed extension source zip into ~/.local/share/monkey/
 #
 # Usage:
-#   ./scripts/install.sh
+#   ./scripts/install.sh [--cli-only | --editor-only | --zed-only]
 set -euo pipefail
 
 REPO="hieudoanm/monkey"
-VSIX_URL="https://github.com/${REPO}/releases/latest/download/extension-monkey-c.vsix"
+BASE_URL="https://github.com/${REPO}/releases/latest/download"
 
-if ! command -v code >/dev/null 2>&1; then
-    echo "VS Code CLI ('code') not found on PATH."
-    echo "Install it from VS Code (Shell Command: Install 'code' command in PATH)"
-    echo "or download the .vsix manually: ${VSIX_URL}"
-    exit 1
-fi
+MODE="all"
+case "${1:-}" in
+    --cli-only)    MODE="cli" ;;
+    --editor-only) MODE="editor" ;;
+    --zed-only)    MODE="zed" ;;
+    "" ) ;;
+    *) echo "usage: $0 [--cli-only | --editor-only | --zed-only]" >&2; exit 2 ;;
+esac
+
+want_cli()    { [ "$MODE" = "all" ] || [ "$MODE" = "cli" ]; }
+want_editor() { [ "$MODE" = "all" ] || [ "$MODE" = "editor" ]; }
+want_zed()    { [ "$MODE" = "all" ] || [ "$MODE" = "zed" ]; }
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-echo "Downloading extension-monkey-c.vsix from the latest release..."
-if ! curl -fsSL "$VSIX_URL" -o "$TMP_DIR/monkey-c.vsix"; then
-    echo "error: could not download ${VSIX_URL}" >&2
-    echo "hint: no prebuilt release yet — build locally with ./scripts/install-local.sh" >&2
-    exit 1
-fi
+# ---------- CLI ----------
+install_cli() {
+    local os arch asset
+    os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+    arch="$(uname -m)"
+    case "$os/$arch" in
+        darwin/arm64|darwin/aarch64) asset="cli-monkey-aarch64-apple-darwin" ;;
+        darwin/x86_64)               asset="cli-monkey-x86_64-apple-darwin" ;;
+        linux/x86_64)                asset="cli-monkey-x86_64-unknown-linux-gnu" ;;
+        mingw*|msys*|cygwin*|windows*)
+            echo "Windows: download cli-monkey-x86_64-pc-windows-msvc.exe manually" >&2
+            return 1 ;;
+        *)
+            echo "unsupported platform: $os/$arch" >&2
+            return 1 ;;
+    esac
 
-code --install-extension "$TMP_DIR/monkey-c.vsix" --force
-echo "monkey-c installed into VS Code"
+    echo "Downloading ${asset}..."
+    if ! curl -fsSL "${BASE_URL}/${asset}" -o "$TMP_DIR/monkey"; then
+        echo "error: could not download ${BASE_URL}/${asset}" >&2
+        echo "hint: no prebuilt release yet — build locally: cd crates && cargo build --release" >&2
+        return 1
+    fi
+
+    local bin_dir="$HOME/.local/bin"
+    mkdir -p "$bin_dir"
+    install -m 0755 "$TMP_DIR/monkey" "$bin_dir/monkey"
+    echo "monkey CLI installed to ${bin_dir}/monkey"
+
+    case ":$PATH:" in
+        *":$bin_dir:"*) ;;
+        *) echo "note: ${bin_dir} is not on your PATH — add: export PATH=\"${bin_dir}:\$PATH\"" ;;
+    esac
+}
+
+# ---------- VS Code ----------
+install_vscode() {
+    if ! command -v code >/dev/null 2>&1; then
+        echo "VS Code CLI ('code') not found — skipping extension install."
+        echo "  Install manually: ${BASE_URL}/extension-monkey-c.vsix"
+        return 0
+    fi
+
+    echo "Downloading extension-monkey-c.vsix..."
+    if ! curl -fsSL "${BASE_URL}/extension-monkey-c.vsix" -o "$TMP_DIR/monkey-c.vsix"; then
+        echo "error: could not download ${BASE_URL}/extension-monkey-c.vsix" >&2
+        return 1
+    fi
+    code --install-extension "$TMP_DIR/monkey-c.vsix" --force
+    echo "monkey-c installed into VS Code"
+}
+
+# ---------- Zed ----------
+install_zed() {
+    local dest="$HOME/.local/share/monkey/zed-extension"
+    echo "Downloading extension-monkey-c-zed.zip..."
+    if ! curl -fsSL "${BASE_URL}/extension-monkey-c-zed.zip" -o "$TMP_DIR/monkey-c-zed.zip"; then
+        echo "error: could not download ${BASE_URL}/extension-monkey-c-zed.zip" >&2
+        return 1
+    fi
+    mkdir -p "$dest"
+    unzip -oq "$TMP_DIR/monkey-c-zed.zip" -d "$dest"
+    cat <<EOF
+Zed extension source extracted to:
+  ${dest}
+
+Install it in Zed with:  zed: install ${dest}
+(Or copy it into your Zed extensions directory.)
+EOF
+}
+
+rc=0
+want_cli    && install_cli    || true
+want_editor && install_vscode || true
+want_zed    && install_zed    || true
+exit $rc

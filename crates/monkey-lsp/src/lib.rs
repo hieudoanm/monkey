@@ -11,9 +11,12 @@
 
 use std::collections::HashMap;
 use std::io::{Read, Write};
+use std::path::PathBuf;
+use std::rc::Rc;
 
 use serde_json::{json, Value};
 
+mod index;
 mod intel;
 
 use monkey_core::{Diagnostic, Severity};
@@ -26,6 +29,12 @@ pub struct Server {
     docs: HashMap<String, (String, String)>,
     /// Set after `shutdown`; `exit` then terminates.
     shutdown_received: bool,
+    /// Workspace root from `initialize` (workspaceFolders/rootUri).
+    workspace_root: Option<PathBuf>,
+    /// Lazily-built project symbol index.
+    index: Option<Rc<index::ProjectIndex>>,
+    /// Rebuild the index on next use (any doc change invalidates it).
+    index_dirty: bool,
 }
 
 /// What [`Server::handle`] produced for one message.
@@ -57,6 +66,7 @@ impl Server {
 
         match method {
             "initialize" => {
+                self.workspace_root = workspace_root(&params);
                 out.response = Some(json!({
                     "jsonrpc": "2.0",
                     "id": id,
@@ -70,7 +80,8 @@ impl Server {
                             "completionProvider": {"triggerCharacters": [".", " "]},
                             "documentFormattingProvider": true,
                             "referencesProvider": true,
-                            "renameProvider": {"prepareProvider": false}
+                            "renameProvider": {"prepareProvider": true},
+                            "signatureHelpProvider": {"triggerCharacters": ["(", ","]}
                         },
                         "serverInfo": {"name": "monkey", "version": env!("CARGO_PKG_VERSION")}
                     }
@@ -93,6 +104,7 @@ impl Server {
                     if !uri.is_empty() {
                         self.docs
                             .insert(uri.to_string(), (lang.to_string(), text.to_string()));
+                        self.index_dirty = true;
                         out.notifications.push(publish(uri, lang, text));
                     }
                 }
@@ -119,6 +131,7 @@ impl Server {
                         .unwrap_or_default();
                     self.docs
                         .insert(uri.to_string(), (lang.clone(), text.clone()));
+                    self.index_dirty = true;
                     out.notifications.push(publish(uri, &lang, &text));
                 }
             }
@@ -137,6 +150,7 @@ impl Server {
                     }
                 } else {
                     self.docs.remove(uri);
+                    self.index_dirty = true;
                     out.notifications.push(json!({
                         "jsonrpc": "2.0",
                         "method": "textDocument/publishDiagnostics",
@@ -174,6 +188,14 @@ impl Server {
             }
             "textDocument/rename" => {
                 let result = self.rename_result(&params);
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
+            "textDocument/signatureHelp" => {
+                let result = self.signature_help_result(&params);
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
+            "textDocument/prepareRename" => {
+                let result = self.prepare_rename_result(&params);
                 out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
             }
             _ if is_request => {
@@ -220,27 +242,70 @@ impl Server {
         }
     }
 
-    fn definition_result(&self, params: &Value) -> Value {
+    /// Lazily build (or reuse) the project symbol index, overlaying the
+    /// in-memory text of open documents so unsaved buffers are reflected.
+    fn project_index(&mut self) -> Rc<index::ProjectIndex> {
+        if self.index_dirty || self.index.is_none() {
+            let root = self
+                .workspace_root
+                .clone()
+                .or_else(|| {
+                    self.docs
+                        .keys()
+                        .find_map(|u| index::uri_to_path(u))
+                        .and_then(|p| p.parent().map(PathBuf::from))
+                        // Never scan the filesystem root.
+                        .filter(|d| d != std::path::Path::new("/"))
+                })
+                .unwrap_or_else(|| PathBuf::from("."));
+            let mut idx = index::ProjectIndex::build(&root);
+            for f in &mut idx.files {
+                if let Some((_, text)) = self.docs.get(&f.uri) {
+                    f.src = text.clone();
+                    f.decls = intel::collect_decls(text);
+                }
+            }
+            self.index = Some(Rc::new(idx));
+            self.index_dirty = false;
+        }
+        self.index.as_ref().expect("index just built").clone()
+    }
+
+    /// Identifier word at a byte offset in `src`.
+    fn word_at(&self, src: &str, offset: usize) -> Option<(String, usize, usize)> {
+        intel::ident_at(src, offset).map(|(a, b)| (src[a..b].to_string(), a, b))
+    }
+
+    fn definition_result(&mut self, params: &Value) -> Value {
         let Some((uri, lang, src)) = self.doc_text(params) else {
             return json!([]);
         };
         if lang == "jungle" {
             return json!([]);
         }
-        match self.offset_param(params, &src) {
-            Some(off) => intel::definition(&src, &uri, off),
-            None => json!([]),
-        }
-    }
-
-    fn completion_result(&self, params: &Value) -> Value {
-        let Some((_, lang, src)) = self.doc_text(params) else {
-            return json!({"isIncomplete": false, "items": []});
+        let _ = uri;
+        let Some(off) = self.offset_param(params, &src) else {
+            return json!([]);
         };
-        if lang == "jungle" {
-            return json!({"isIncomplete": false, "items": []});
-        }
-        intel::completion(&src)
+        let Some((word, _, _)) = self.word_at(&src, off) else {
+            return json!([]);
+        };
+        let idx = self.project_index();
+        let mut locs: Vec<Value> = idx
+            .find_decls(&word)
+            .iter()
+            .map(|(f, d)| {
+                json!({
+                    "uri": f.uri,
+                    "range": {
+                        "start": position_at_byte(&f.src, d.name_span.start as usize),
+                        "end": position_at_byte(&f.src, d.name_span.end as usize),
+                    },
+                })
+            })
+            .collect();
+        locs.dedup();
+        json!(locs)
     }
 
     fn formatting_result(&self, params: &Value) -> Value {
@@ -250,37 +315,286 @@ impl Server {
         intel::formatting(&src, lang == "jungle")
     }
 
-    fn references_result(&self, params: &Value) -> Value {
+    fn references_result(&mut self, params: &Value) -> Value {
         let Some((uri, lang, src)) = self.doc_text(params) else {
             return json!([]);
         };
         if lang == "jungle" {
             return json!([]);
         }
+        let _ = uri;
         let include_decl = params
             .get("context")
             .and_then(|c| c.get("includeDeclaration"))
             .and_then(Value::as_bool)
             .unwrap_or(false);
-        match self.offset_param(params, &src) {
-            Some(off) => intel::references(&src, &uri, off, include_decl),
-            None => json!([]),
+        let Some(off) = self.offset_param(params, &src) else {
+            return json!([]);
+        };
+        let Some((word, _, _)) = self.word_at(&src, off) else {
+            return json!([]);
+        };
+        let idx = self.project_index();
+        let mut locs: Vec<Value> = Vec::new();
+        for f in &idx.files {
+            for span in intel::uses_in(&f.src, &word) {
+                locs.push(json!({
+                    "uri": f.uri,
+                    "range": {
+                        "start": position_at_byte(&f.src, span.start as usize),
+                        "end": position_at_byte(&f.src, span.end as usize),
+                    },
+                }));
+            }
         }
+        if include_decl {
+            for (f, d) in idx.find_decls(&word) {
+                locs.push(json!({
+                    "uri": f.uri,
+                    "range": {
+                        "start": position_at_byte(&f.src, d.name_span.start as usize),
+                        "end": position_at_byte(&f.src, d.name_span.end as usize),
+                    },
+                }));
+            }
+        }
+        json!(locs)
     }
 
-    fn rename_result(&self, params: &Value) -> Value {
+    fn rename_result(&mut self, params: &Value) -> Value {
         let Some((uri, lang, src)) = self.doc_text(params) else {
             return Value::Null;
         };
         if lang == "jungle" {
             return Value::Null;
         }
+        let _ = uri;
         let new_name = params.get("newName").and_then(Value::as_str).unwrap_or("");
+        if !intel::valid_ident(new_name) {
+            return Value::Null;
+        }
+        let Some(off) = self.offset_param(params, &src) else {
+            return Value::Null;
+        };
+        let Some((word, _, _)) = self.word_at(&src, off) else {
+            return Value::Null;
+        };
+        let idx = self.project_index();
+        if idx.find_decls(&word).is_empty() {
+            return Value::Null;
+        }
+        let mut changes = serde_json::Map::new();
+        for f in &idx.files {
+            let mut edits: Vec<Value> = Vec::new();
+            for span in intel::uses_in(&f.src, &word) {
+                edits.push(json!({
+                    "range": {
+                        "start": position_at_byte(&f.src, span.start as usize),
+                        "end": position_at_byte(&f.src, span.end as usize),
+                    },
+                    "newText": new_name,
+                }));
+            }
+            for (_, d) in idx.find_decls_in(&f.uri, &word) {
+                edits.push(json!({
+                    "range": {
+                        "start": position_at_byte(&f.src, d.name_span.start as usize),
+                        "end": position_at_byte(&f.src, d.name_span.end as usize),
+                    },
+                    "newText": new_name,
+                }));
+            }
+            if !edits.is_empty() {
+                edits.sort_by(|a, b| {
+                    let ka = format!(
+                        "{}{}",
+                        a["range"]["start"]["line"], a["range"]["start"]["character"]
+                    );
+                    let kb = format!(
+                        "{}{}",
+                        b["range"]["start"]["line"], b["range"]["start"]["character"]
+                    );
+                    ka.cmp(&kb)
+                });
+                changes.insert(f.uri.clone(), json!(edits));
+            }
+        }
+        if changes.is_empty() {
+            return Value::Null;
+        }
+        json!({"changes": Value::Object(changes)})
+    }
+
+    fn signature_help_result(&self, params: &Value) -> Value {
+        let Some((_, lang, src)) = self.doc_text(params) else {
+            return Value::Null;
+        };
+        if lang == "jungle" {
+            return Value::Null;
+        }
         match self.offset_param(params, &src) {
-            Some(off) => intel::rename(&src, &uri, off, new_name).unwrap_or(Value::Null),
+            Some(off) => intel::signature_help(&src, off).unwrap_or(Value::Null),
             None => Value::Null,
         }
     }
+
+    fn prepare_rename_result(&mut self, params: &Value) -> Value {
+        let Some((uri, lang, src)) = self.doc_text(params) else {
+            return Value::Null;
+        };
+        if lang == "jungle" {
+            return Value::Null;
+        }
+        let _ = uri;
+        let Some(off) = self.offset_param(params, &src) else {
+            return Value::Null;
+        };
+        let Some((word, a, b)) = self.word_at(&src, off) else {
+            return Value::Null;
+        };
+        let idx = self.project_index();
+        if idx.find_decls(&word).is_empty() {
+            return Value::Null;
+        }
+        json!({
+            "range": {
+                "start": position_at_byte(&src, a),
+                "end": position_at_byte(&src, b),
+            },
+            "placeholder": word,
+        })
+    }
+
+    /// Base identifier of a `X.` member-access prefix ending at `offset`,
+    /// e.g. `view.` → `view`, `this.` → `this`.
+    fn member_base(src: &str, offset: usize) -> Option<String> {
+        let upto = offset.min(src.len());
+        let line_start = src[..upto].rfind('\n').map(|i| i + 1).unwrap_or(0);
+        let prefix = src[line_start..upto].trim_end();
+        let dot = prefix.rfind('.')?;
+        let before = &prefix[..dot];
+        let ident: String = before
+            .chars()
+            .rev()
+            .take_while(|c| c.is_alphanumeric() || *c == '_')
+            .collect::<String>()
+            .chars()
+            .rev()
+            .collect();
+        (!ident.is_empty()).then_some(ident)
+    }
+
+    fn completion_result(&mut self, params: &Value) -> Value {
+        let Some((_, lang, src)) = self.doc_text(params) else {
+            return json!({"isIncomplete": false, "items": []});
+        };
+        if lang == "jungle" {
+            return json!({"isIncomplete": false, "items": []});
+        }
+        // Member completion after `X.` — resolve X's declared type.
+        if let Some(off) = self.offset_param(params, &src) {
+            if let Some(base) = Self::member_base(&src, off) {
+                return self.member_completion(&src, off, &base);
+            }
+        }
+        // Keywords + file decls + project decl names.
+        let mut result = intel::completion(&src);
+        let idx = self.project_index();
+        let mut seen: std::collections::HashSet<String> = result["items"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|i| i["label"].as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default();
+        for f in &idx.files {
+            for d in &f.decls {
+                if seen.insert(d.name.clone()) {
+                    let kind = match d.kind {
+                        "class" => 7,
+                        "enum" => 13,
+                        "method" => 2,
+                        "function" => 3,
+                        "field" => 5,
+                        "enum-member" => 22,
+                        _ => 6,
+                    };
+                    result["items"].as_array_mut().unwrap().push(json!({
+                        "label": d.name,
+                        "kind": kind,
+                        "detail": format!("{} ({})", d.detail, f.path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default()),
+                        "insertText": d.name,
+                    }));
+                }
+            }
+        }
+        result
+    }
+
+    /// Completion items for `base.` — class members via type annotations or
+    /// `this` inside a class body.
+    fn member_completion(&mut self, src: &str, offset: usize, base: &str) -> Value {
+        let mut members: Vec<(String, &'static str)> = Vec::new();
+        let class_name = if base == "this" {
+            intel::class_at(src, offset).map(|c| c.name.text)
+        } else {
+            // Find the decl for `base`; use its declared type name.
+            let decls = intel::collect_decls(src);
+            decls
+                .iter()
+                .find(|d| d.name == base)
+                .and_then(|d| d.type_name.clone())
+                .or_else(|| {
+                    // Maybe `base` is itself a class name.
+                    decls
+                        .iter()
+                        .any(|d| d.name == base && d.kind == "class")
+                        .then(|| base.to_string())
+                })
+        };
+        if let Some(cname) = class_name {
+            // The class may live in another file — search the index.
+            let idx = self.project_index();
+            for f in &idx.files {
+                let found = intel::class_members(&f.src, &cname);
+                if !found.is_empty() {
+                    members = found;
+                    break;
+                }
+            }
+        }
+        let items: Vec<Value> = members
+            .iter()
+            .map(|(name, kind)| {
+                json!({
+                    "label": name,
+                    "kind": if *kind == "method" { 2 } else { 5 },
+                    "detail": kind,
+                    "insertText": name,
+                })
+            })
+            .collect();
+        json!({"isIncomplete": false, "items": items})
+    }
+}
+
+/// Extract the workspace root from `initialize` params
+/// (`workspaceFolders[0].uri`, falling back to `rootUri`).
+fn workspace_root(params: &Value) -> Option<PathBuf> {
+    if let Some(folders) = params.get("workspaceFolders").and_then(Value::as_array) {
+        if let Some(uri) = folders
+            .first()
+            .and_then(|f| f.get("uri"))
+            .and_then(Value::as_str)
+        {
+            return index::uri_to_path(uri);
+        }
+    }
+    params
+        .get("rootUri")
+        .and_then(Value::as_str)
+        .and_then(index::uri_to_path)
 }
 
 fn publish(uri: &str, lang: &str, src: &str) -> Value {
@@ -566,24 +880,69 @@ mod tests {
     }
 
     #[test]
-    fn definition_jumps_to_decl() {
+    fn definition_and_references_across_files() {
+        let dir = std::env::temp_dir().join(format!("monkey-lsp-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let a = "class Shared {\n  var c = 0;\n  function f() {\n    c = 1;\n  }\n}\n";
+        let b = "function useIt() as Void {\n  var s = new Shared();\n}\n";
+        std::fs::write(dir.join("a.mc"), a).unwrap();
+        std::fs::write(dir.join("b.mc"), b).unwrap();
+        let uri_a = index::path_to_uri(&dir.join("a.mc"));
+        let uri_b = index::path_to_uri(&dir.join("b.mc"));
+
         let mut s = Server::new();
         s.handle(&msg(
+            "initialize",
+            json!({"workspaceFolders": [{"uri": index::path_to_uri(&dir), "name": "t"}]}),
+            Some(1),
+        ));
+        s.handle(&msg(
             "textDocument/didOpen",
-            json!({"textDocument": {"uri": "file:///a.mc", "languageId": "monkeyc", "version": 1,
-                "text": "class A {\n  var c = 0;\n  function f() {\n    c = 1;\n  }\n}\n"}}),
+            json!({"textDocument": {"uri": uri_a, "languageId": "monkeyc", "version": 1, "text": a}}),
             None,
         ));
-        // 'c' usage at line 3
+        s.handle(&msg(
+            "textDocument/didOpen",
+            json!({"textDocument": {"uri": uri_b, "languageId": "monkeyc", "version": 1, "text": b}}),
+            None,
+        ));
+
+        // 'c' usage inside f() at line 3 → decl at line 1
         let out = s.handle(&msg(
             "textDocument/definition",
-            json!({"textDocument": {"uri": "file:///a.mc"},
-                   "position": {"line": 3, "character": 5}}),
-            Some(5),
+            json!({"textDocument": {"uri": uri_a}, "position": {"line": 3, "character": 5}}),
+            Some(2),
         ));
         let resp = out.response.unwrap();
-        let locs = resp["result"].as_array().unwrap();
+        let locs = resp["result"].as_array().unwrap().clone();
         assert_eq!(locs.len(), 1);
+        assert_eq!(locs[0]["uri"], uri_a);
         assert_eq!(locs[0]["range"]["start"]["line"], 1);
+
+        // 'Shared' usage in b.mc → decl in a.mc (cross-file)
+        let out = s.handle(&msg(
+            "textDocument/definition",
+            json!({"textDocument": {"uri": uri_b}, "position": {"line": 1, "character": 16}}),
+            Some(3),
+        ));
+        let resp = out.response.unwrap();
+        let locs = resp["result"].as_array().unwrap().clone();
+        assert_eq!(locs.len(), 1);
+        assert_eq!(locs[0]["uri"], uri_a);
+        assert_eq!(locs[0]["range"]["start"]["line"], 0);
+
+        // references on 'Shared' → decl + the `new Shared()` use
+        let out = s.handle(&msg(
+            "textDocument/references",
+            json!({"textDocument": {"uri": uri_b}, "position": {"line": 1, "character": 16},
+                   "context": {"includeDeclaration": true}}),
+            Some(4),
+        ));
+        let resp = out.response.unwrap();
+        let locs = resp["result"].as_array().unwrap().clone();
+        assert!(locs.len() >= 2, "expected decl + use, got {}", locs.len());
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

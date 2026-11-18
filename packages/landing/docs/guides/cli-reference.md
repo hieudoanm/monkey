@@ -161,6 +161,17 @@ files are formatter-clean, so `monkey check` passes immediately and
 `monkey build` works once a device is added. Fails if the target already
 contains `monkey.jungle` or `manifest.xml`.
 
+## test
+
+```bash
+monkey test [--device <id>] [--sdk <path>] [--key <path>] [path]
+```
+
+Project verification gate: runs `monkey check` (lint + format drift) over
+the project's files, then a full `monkey build`. Exits non-zero on any
+finding or build failure — intended for CI and pre-commit. Runtime
+`Toybox.Test` execution inside the simulator is not yet supported.
+
 ## build
 
 ```bash
@@ -237,12 +248,37 @@ Runs a language server over stdio (LSP, full document sync). Capabilities:
   under the cursor.
 - **`textDocument/formatting`** — full-document formatting via
   `monkey-formatter` (returns no edit when already formatted).
-- **`textDocument/rename`** — same-file rename returning a `WorkspaceEdit`
-  covering the declaration and all uses; rejects invalid identifiers.
+- **`textDocument/rename`** — rename returning a `WorkspaceEdit` covering
+  the declaration and all uses **across the project**; rejects invalid
+  identifiers.
+- **`textDocument/signatureHelp`** — parameter info inside call
+  parentheses.
+- **`textDocument/prepareRename`** — validates rename targets up front.
+- **Context-aware completion** — `X.` completes members of `X`'s declared or inferred
+  (`new X()`) type (or the enclosing class for `this.`); plain positions offer keywords
+  plus declarations from the whole project.
 
-All positions are UTF-16-correct. Point your editor's language-server
-setting at `monkey lsp`; jungle documents get diagnostics, formatting,
-and (for symbols/hover/etc.) empty results since they are not Monkey C.
+Definition, references, and rename resolve across all `*.mc` files in the
+workspace (indexed from `workspaceFolders`/`rootUri`, or the opened file's
+directory). All positions are UTF-16-correct. Jungle documents get
+diagnostics, formatting, and empty results for the Monkey C features.
+
+## Lint configuration
+
+`monkey.jungle` accepts `lint.*` keys, applied by `lint`/`check`/`test` (and
+`--stdin` modes) for files inside that project:
+
+```text
+project.manifest = manifest.xml
+lint.disable = unused-variable,empty-block
+lint.severity.no-trailing-whitespace = error
+```
+
+- `lint.disable` — comma-separated rule ids to suppress entirely.
+- `lint.severity.<rule-id>` — `error`, `warning`, `information`/`info`, or
+  `hint`.
+
+Inline `monkey-ignore` comments still apply on top of this.
 
 ## Exit codes
 

@@ -31,7 +31,7 @@ use monkey_core::{
 mod build;
 mod scaffold;
 use monkey_formatter::{format_source, FormatOptions, LineEnding};
-use monkey_linter::{lint_monkeyc, lint_text};
+use monkey_linter::{lint_monkeyc_config, lint_text_config, LintConfig};
 
 const USAGE: &str = "\
 monkey — Monkey C toolchain
@@ -49,6 +49,7 @@ COMMANDS:
     sdk       Manage/connect-info: list | detect | info
     device    List Connect IQ devices or show device info
     project   Project info: info [path]
+    test      Verify a project: lint + format check + PRG build
     new       Scaffold a new Connect IQ project
     build     Compile a Connect IQ project to bin/<name>.prg
     run       Build, start the simulator, and launch the app
@@ -91,6 +92,7 @@ fn main() -> ExitCode {
         "device" => cmd_device(&args[1..]),
         "project" => cmd_project(&args[1..]),
         "new" => cmd_new(&args[1..]),
+        "test" => cmd_test(&args[1..]),
         "build" => cmd_build(&args[1..], false),
         "run" => cmd_build(&args[1..], true),
         "mcp" => cmd_mcp(),
@@ -147,6 +149,17 @@ fn collect_files(paths: &[String], extensions: &[&str]) -> Vec<PathBuf> {
     out
 }
 
+/// Load `lint.*` configuration from the `monkey.jungle` of the project
+/// containing `start` (or the current directory's project).
+fn lint_config(start: Option<&str>) -> LintConfig {
+    let project = start
+        .and_then(monkey_project::discover_from)
+        .or_else(|| monkey_project::discover_from("."));
+    project
+        .map(|p| LintConfig::from_jungle(p.jungle.map().into_iter()))
+        .unwrap_or_default()
+}
+
 fn read_stdin() -> String {
     let mut buf = String::new();
     let _ = io::stdin().read_to_string(&mut buf);
@@ -198,7 +211,8 @@ fn cmd_format(args: &[String]) -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    let files = collect_files(&positional(args), &["mc", "jungle"]);
+    let pos = positional(args);
+    let files = collect_files(&pos, &["mc", "jungle"]);
     if files.is_empty() {
         eprintln!("monkey: no .mc or .jungle files found");
         return ExitCode::from(2);
@@ -255,12 +269,13 @@ fn cmd_lint(args: &[String], with_format_check: bool) -> ExitCode {
             .cloned()
             .unwrap_or_else(|| "<stdin>".to_string());
         let src = read_stdin();
+        let config = lint_config(None);
         let is_monkeyc = !label.ends_with(".jungle");
         let mut diags = if is_monkeyc {
-            lint_monkeyc(&src, &label)
+            lint_monkeyc_config(&src, &label, &config)
         } else {
             let mut d = Vec::new();
-            lint_text(&src, &mut d);
+            lint_text_config(&src, &mut d, &config);
             d
         };
         diags.sort_by_key(|d| d.span.map(|s| s.start).unwrap_or(u32::MAX));
@@ -284,7 +299,9 @@ fn cmd_lint(args: &[String], with_format_check: bool) -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    let files = collect_files(&positional(args), &["mc", "jungle"]);
+    let pos = positional(args);
+    let config = lint_config(pos.first().map(String::as_str));
+    let files = collect_files(&pos, &["mc", "jungle"]);
     if files.is_empty() {
         eprintln!("monkey: no .mc or .jungle files found");
         return ExitCode::from(2);
@@ -308,10 +325,10 @@ fn cmd_lint(args: &[String], with_format_check: bool) -> ExitCode {
         );
         // lint_monkeyc already includes the text rules.
         let mut diags = if is_monkeyc {
-            lint_monkeyc(&src, &pstr)
+            lint_monkeyc_config(&src, &pstr, &config)
         } else {
             let mut d = Vec::new();
-            lint_text(&src, &mut d);
+            lint_text_config(&src, &mut d, &config);
             d
         };
         diags.sort_by_key(|d| d.span.map(|s| s.start).unwrap_or(u32::MAX));
@@ -761,6 +778,33 @@ fn cmd_new(args: &[String]) -> ExitCode {
             ExitCode::from(1)
         }
     }
+}
+
+/// `monkey test [--device <id>] [--sdk <path>] [--key <path>] [path]`
+///
+/// Project verification: `monkey check` over the project's Monkey C and
+/// Jungle files, then a full `monkey build`. Runtime `Toybox.Test` execution
+/// inside the simulator is not yet supported — this is the static +
+/// compile-time gate for CI.
+fn cmd_test(args: &[String]) -> ExitCode {
+    let (flags, rest) = take_flags(args, &["--sdk", "--key", "--device"]);
+    let start = positional(&rest)
+        .first()
+        .cloned()
+        .unwrap_or_else(|| ".".to_string());
+
+    // Lint + format-check everything under the project root.
+    let check_args: Vec<String> = vec![start.clone()];
+    let check_code = cmd_lint(&check_args, true);
+    if check_code != ExitCode::SUCCESS {
+        return check_code;
+    }
+
+    let sdk = flag_value(&flags, "--sdk").map(PathBuf::from);
+    let key = flag_value(&flags, "--key").map(PathBuf::from);
+    let device = flag_value(&flags, "--device");
+    let code = build::build(&start, sdk.as_deref(), key.as_deref(), device);
+    ExitCode::from(code as u8)
 }
 
 /// `monkey build|run [--device <id>] [--sdk <path>] [--key <path>] [--no-simulator] [path]`
