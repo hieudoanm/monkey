@@ -25,6 +25,17 @@ describe('formatMonkeyC', () => {
     const input = 'dc.drawText(x,y); // comment\n';
     expect(formatMonkeyC(input)).toBe('dc.drawText(x, y); // comment\n');
   });
+
+  it('keeps spaces around ternary colons but not case/annotation colons', () => {
+    const input =
+      'var m = w < h ? w : h;\nvar c = on ? Graphics.COLOR_RED : Graphics.COLOR_DK_GRAY;\nfunction f() {\n  switch (x) {\n  case 1: return;\n  }\n  (:test)\n}\n';
+    const once = formatMonkeyC(input);
+    expect(once).toContain('? w : h');
+    expect(once).toContain('? Graphics.COLOR_RED : Graphics.COLOR_DK_GRAY');
+    expect(once).toContain('case 1:');
+    expect(once).toContain('(:test)');
+    expect(formatMonkeyC(once)).toBe(once);
+  });
 });
 
 describe('formatJungle', () => {

@@ -108,13 +108,17 @@ function finalizeCodeSpacing(out: string): string {
     .replace(/\s+([,;])/g, '$1')
     .replace(/,([^\s)\]}])/g, ', $1')
     .replace(/;([^\s)\]};/])/g, '; $1')
-    .replace(/\s+:/g, ':')
     .replace(/[ \t]+$/g, '');
 }
 
 function normalizeCodeSpacing(line: string): string {
   let out = '';
   let i = 0;
+  // `?` seen since the last `:`/delimiter — the next `:` is a ternary colon
+  // and keeps surrounding spaces (`a ? b : c`). Dict/case colons don't.
+  let ternaryQ = false;
+  // The `:` just emitted was a ternary colon — allow a space after it.
+  let ternaryColon = false;
   let state: 'code' | 'block' | 'string' | 'char' = 'code';
   while (i < line.length) {
     const ch = line[i];
@@ -144,13 +148,30 @@ function normalizeCodeSpacing(line: string): string {
         continue;
       }
       if (/\s/.test(ch)) {
-        if (out.length && !/[\s([{,;:]$/.test(out) && next && !/[\s)\]}.,;:]/.test(next))
-          out += ' ';
+        const spaceBefore =
+          next === ':' && (ternaryQ || /[{,]\s*$/.test(out))
+            ? true
+            : !/[\s)\]}.,;:]/.test(next ?? '');
+        const spaceAfter =
+          !/[\s([{,;:]$/.test(out) ||
+          (next === ':' && /[{,]\s*$/.test(out)) ||
+          (ternaryColon && out.endsWith(':'));
+        if (out.length && spaceAfter && next && spaceBefore) out += ' ';
         i += 1;
         while (i < line.length && /\s/.test(line[i])) i += 1;
         continue;
       }
       out += ch;
+      if (ch === '?') {
+        ternaryQ = true;
+        ternaryColon = false;
+      } else if (ch === ':') {
+        ternaryColon = ternaryQ;
+        ternaryQ = false;
+      } else {
+        if (/[,;)\]}{]/.test(ch)) ternaryQ = false;
+        ternaryColon = false;
+      }
       i += 1;
       continue;
     }

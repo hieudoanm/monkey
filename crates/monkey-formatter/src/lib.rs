@@ -93,7 +93,7 @@ pub fn format_monkeyc(src: &str, options: &FormatOptions) -> String {
 
         let emit_space = !need_newline
             && line_has_code
-            && prev.is_some_and(|p| needs_space(p, t, t.space_before));
+            && prev.is_some_and(|p| needs_space(p, t, t.space_before, case_colon_pending));
 
         if emit_space {
             out.push(' ');
@@ -156,21 +156,32 @@ pub fn format_monkeyc(src: &str, options: &FormatOptions) -> String {
 
 /// Whether a space should be emitted between `prev` and `cur` when they stay
 /// on the same line. `input_space` is whether the source had whitespace there.
-fn needs_space(prev: &Token, cur: &Token, input_space: bool) -> bool {
+fn needs_space(prev: &Token, cur: &Token, input_space: bool, case_colon_pending: bool) -> bool {
     let p = prev.text.as_str();
     let c = cur.text.as_str();
 
+    // Colon: `case`/`default` labels and annotations hug the left side;
+    // everything else (ternary `a ? b : c`, dict `:key` entries) preserves
+    // whatever spacing the source had.
+    if c == ":" {
+        if case_colon_pending || matches!(p, "(" | "[") {
+            return false;
+        }
+        return input_space;
+    }
+    // After a colon preserve source spacing (annotations `(:foo)`,
+    // dict `:key`); a space before the next token is never forced.
+    if p == ":" {
+        return input_space;
+    }
+
     // Never a space before these.
-    if matches!(c, "," | ";" | ")" | "]" | "." | ":") {
+    if matches!(c, "," | ";" | ")" | "]" | ".") {
         return false;
     }
     // Never a space after opening delimiters or member access.
     if matches!(p, "(" | "[" | ".") {
         return false;
-    }
-    // Colon: preserve whatever the source had (annotations `(:foo)`).
-    if p == ":" {
-        return input_space;
     }
     // Control keywords keep a space before their condition: `if (`.
     if c == "(" {
@@ -324,6 +335,20 @@ mod tests {
             out,
             "project.manifest = manifest.xml\n\n# comment\nfoo = bar\n"
         );
+    }
+
+    #[test]
+    fn preserves_colon_spacing() {
+        // Ternary and dict-entry colons keep source spacing; case labels and
+        // annotations hug the left side.
+        let src = "var a = w < h ? w : h;\nvar d = { :k => 1 };\n(:test)\nfunction f() {\n  switch (x) {\n  case 1: return;\n  }\n}\n";
+        let out = format_monkeyc(src, &FormatOptions::default());
+        assert!(out.contains("? w : h"), "got:\n{}", out);
+        assert!(out.contains(":k => 1"), "got:\n{}", out);
+        assert!(out.contains("(:test)"), "got:\n{}", out);
+        assert!(out.contains("case 1:"), "got:\n{}", out);
+        // Idempotent.
+        assert_eq!(out, format_monkeyc(&out, &FormatOptions::default()));
     }
 
     #[test]
