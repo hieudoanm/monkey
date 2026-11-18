@@ -21,6 +21,8 @@ dependencies = [
  "monkey-core",
  "monkey-formatter",
  "monkey-linter",
+ "monkey-lsp",
+ "monkey-mcp",
  "monkey-parser",
  "monkey-project",
  "monkey-sdk",
@@ -45,6 +47,30 @@ dependencies = [
  "monkey-core",
  "monkey-parser",
  "monkey-syntax",
+]
+
+[[package]]
+name = "monkey-lsp"
+version = "0.1.0"
+dependencies = [
+ "monkey-core",
+ "monkey-linter",
+ "monkey-parser",
+ "monkey-syntax",
+ "serde_json",
+]
+
+[[package]]
+name = "monkey-mcp"
+version = "0.1.0"
+dependencies = [
+ "monkey-core",
+ "monkey-formatter",
+ "monkey-linter",
+ "monkey-parser",
+ "monkey-project",
+ "monkey-sdk",
+ "serde_json",
 ]
 
 [[package]]

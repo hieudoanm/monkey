@@ -6,6 +6,7 @@ import Terminal from '@/components/molecules/Terminal';
 import type { Metadata, NextPage } from 'next';
 import type { FC } from 'react';
 import {
+  LuBot,
   LuBraces,
   LuCode,
   LuFileCheck,
@@ -27,7 +28,7 @@ const FEATURES: Feature[] = [
   {
     icon: LuTerminal,
     title: 'monkey CLI',
-    body: 'Zero-dependency Rust binary with format, lint, check, parse, tokens, doctor, sdk, device, project, build, and run commands — it even compiles PRGs and launches the simulator via the official SDK. Prebuilt for Linux, macOS, and Windows.',
+    body: 'Zero-dependency Rust binary with format, lint, check, parse, tokens, doctor, sdk, device, project, build, run, mcp, and lsp commands — it compiles PRGs, launches the simulator, and serves MCP/LSP over stdio. Prebuilt for Linux, macOS, and Windows.',
   },
   {
     icon: LuBraces,
@@ -53,6 +54,11 @@ const FEATURES: Feature[] = [
     icon: LuMonitor,
     title: 'Build & run',
     body: 'monkey build compiles a PRG with the official monkeyc; monkey run builds, starts the simulator, and deploys with monkeydo — the same flow as the editor runtime preview, from the terminal.',
+  },
+  {
+    icon: LuBot,
+    title: 'MCP & language server',
+    body: 'monkey mcp exposes lint, parse, format, project, SDK, and device tools to AI agents over stdio; monkey lsp adds diagnostics, document symbols, hover, go-to-definition, and completion to any LSP-capable editor.',
   },
   {
     icon: LuPackage,
@@ -169,7 +175,7 @@ const HomePage: NextPage = () => (
       primary={{ label: 'Get the CLI', href: '#install' }}
       secondary={{ label: 'See it in action', href: '#demo' }}
       stats={[
-        { value: '11', label: 'CLI commands' },
+        { value: '13', label: 'CLI commands' },
         { value: '2', label: 'editors supported' },
         { value: '0', label: 'runtime dependencies' },
       ]}>
@@ -186,7 +192,7 @@ const HomePage: NextPage = () => (
       <div className="mx-auto w-full max-w-6xl px-5">
         <SectionHead
           title="The monkey CLI"
-          description="format, lint, check, parse, doctor, sdk, device, project, build, and run — files or whole directories, with editor-friendly stdin/stdout, JSON/SARIF, and SDK build modes."
+          description="format, lint, check, parse, doctor, sdk, device, project, build, run, mcp, and lsp — files or whole directories, with editor-friendly stdin/stdout, JSON/SARIF, SDK build modes, and stdio MCP/LSP servers."
         />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {DEMO_TERMINALS.map((t) => (
@@ -210,7 +216,7 @@ const HomePage: NextPage = () => (
       <div className="mx-auto w-full max-w-6xl px-5">
         <SectionHead
           title="Editor extensions"
-          description="VS Code ships as a .vsix; Zed loads from source. Both share the formatter rules and the runtime-preview flow."
+          description="VS Code ships as a .vsix; Zed loads from source. Both share the formatter rules and runtime-preview flow, and can consume the monkey MCP/LSP servers for deeper integration."
         />
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <article className="card border-base-300 bg-base-100 rounded-2xl border p-6">

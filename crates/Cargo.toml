@@ -8,6 +8,8 @@ members = [
     "monkey-linter",
     "monkey-project",
     "monkey-sdk",
+    "monkey-mcp",
+    "monkey-lsp",
     "monkey-cli",
 ]
 

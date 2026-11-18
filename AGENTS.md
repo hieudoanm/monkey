@@ -9,7 +9,7 @@ Garmin Connect IQ.
 
 ## Layout
 
-- `crates/` — Rust workspace with the `monkey-*` toolchain (path dependencies only; `monkey-sdk` uses `serde_json`):
+- `crates/` — Rust workspace with the `monkey-*` toolchain (path dependencies only; `monkey-sdk`/`monkey-mcp`/`monkey-lsp` use `serde_json`):
   - `monkey-core` — shared `Span`, `SourceMap`, `Diagnostic`, terminal/JSON/SARIF renderers.
   - `monkey-syntax` — Monkey C lexer/token model (`lex`, `lex_full` with diagnostics).
   - `monkey-parser` — recursive-descent parser, typed AST (`ast`), visitor (`visit`), error recovery.
@@ -17,7 +17,9 @@ Garmin Connect IQ.
   - `monkey-linter` — lint rules (`no-trailing-whitespace`, `no-multiple-empty-lines`, `use-space-indent`, `eof-newline`, `no-request-update-in-onupdate`, plus AST rules `unused-variable`, `unreachable-code`, `identical-operands`, `empty-block`; rule registry in `registry.rs`).
   - `monkey-project` — `monkey.jungle` + `manifest.xml` parsing, project discovery (walks up 8 dirs).
   - `monkey-sdk` — Connect IQ SDK discovery (`current-sdk.cfg`, `Sdks/` scan), developer-key lookup, `Devices/` device profiles.
-  - `monkey-cli` — `monkey` binary: `format`, `lint`, `check`, `tokens`, `parse`, `doctor`, `sdk`, `device`, `project`, `build`, `run` subcommands.
+  - `monkey-mcp` — MCP server (stdio JSON-RPC `2024-11-05`) exposing lint/parse/format/project/sdk/device tools.
+  - `monkey-lsp` — minimal LSP server publishing lint diagnostics (full sync, UTF-16 positions).
+  - `monkey-cli` — `monkey` binary: `format`, `lint`, `check`, `tokens`, `parse`, `doctor`, `sdk`, `device`, `project`, `build`, `run`, `mcp`, `lsp` subcommands.
 - `packages/extensions/vscode/` — VS Code extension for Monkey C/Jungle (TypeScript). Has its own `AGENTS.md` and README.
 - `packages/extensions/zed/` — Zed extension for Monkey C/Jungle (Tree-sitter, theme, icons, formatter CLI, runtime-preview task). Has its own `AGENTS.md` and README.
 - `packages/landing/` — Next.js static-export landing page deployed to GitHub Pages. Has its own `AGENTS.md`.

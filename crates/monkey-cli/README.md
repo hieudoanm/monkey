@@ -25,6 +25,8 @@ monkey device list|info <id>
 monkey project info [path]
 monkey build  [--device <id>] [--sdk <path>] [--key <path>] [path]
 monkey run    [--device <id>] [--sdk <path>] [--key <path>] [--no-simulator] [path]
+monkey mcp                          # MCP server (stdio JSON-RPC)
+monkey lsp                          # language server (diagnostics, symbols, hover, go-to-def, completion)
 ```
 
 - `format` — default prints formatted source to stdout; `--check` reports
@@ -43,6 +45,8 @@ monkey run    [--device <id>] [--sdk <path>] [--key <path>] [--no-simulator] [pa
 - `build` — compiles `bin/<name>.prg` via the SDK's `monkeyc`.
 - `run` — build + launch `connectiq` simulator + `monkeydo` deploy
   (`--no-simulator` skips the simulator).
+- `mcp` — MCP server exposing lint/parse/format/project/sdk/device tools.
+- `lsp` — language server: lint diagnostics plus document symbols, hover, definition, and completion.
 
 SDK and key resolution mirrors the editor extensions: explicit flag →
 `MONKEYC_SDK_PATH`/`MONKEY_SDK` and `MONKEYC_DEVELOPER_KEY`/`MONKEY_KEY` env

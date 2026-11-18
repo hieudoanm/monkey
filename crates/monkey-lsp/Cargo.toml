@@ -1,0 +1,14 @@
+[package]
+name = "monkey-lsp"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Minimal Monkey C language server: lint diagnostics over LSP"
+
+[dependencies]
+monkey-core = { path = "../monkey-core" }
+monkey-linter = { path = "../monkey-linter" }
+monkey-parser = { path = "../monkey-parser" }
+monkey-syntax = { path = "../monkey-syntax" }
+serde_json = "1"
