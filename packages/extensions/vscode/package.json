@@ -151,6 +151,11 @@
           "type": "boolean",
           "default": true,
           "description": "Run monkey lint diagnostics on Monkey C/Jungle documents."
+        },
+        "monkeyC.lspEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use `monkey lsp` for diagnostics and language features (hover, completion, go-to-definition, rename). Falls back to lint-only diagnostics when the CLI is unavailable."
         }
       }
     }
@@ -180,5 +185,8 @@
     "typescript": "6.0.3",
     "typescript-eslint": "8.73.0",
     "vitest": "5.1.1"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^11.0.0"
   }
 }

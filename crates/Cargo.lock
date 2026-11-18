@@ -16,7 +16,7 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "monkey-cli"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "monkey-core",
  "monkey-formatter",
@@ -31,18 +31,18 @@ dependencies = [
 
 [[package]]
 name = "monkey-core"
-version = "0.1.0"
+version = "0.0.1"
 
 [[package]]
 name = "monkey-formatter"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "monkey-syntax",
 ]
 
 [[package]]
 name = "monkey-linter"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "monkey-core",
  "monkey-parser",
@@ -51,7 +51,7 @@ dependencies = [
 
 [[package]]
 name = "monkey-lsp"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "monkey-core",
  "monkey-formatter",
@@ -64,7 +64,7 @@ dependencies = [
 
 [[package]]
 name = "monkey-mcp"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "monkey-core",
  "monkey-formatter",
@@ -77,7 +77,7 @@ dependencies = [
 
 [[package]]
 name = "monkey-parser"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "monkey-core",
  "monkey-syntax",
@@ -85,18 +85,18 @@ dependencies = [
 
 [[package]]
 name = "monkey-project"
-version = "0.1.0"
+version = "0.0.1"
 
 [[package]]
 name = "monkey-sdk"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "monkey-syntax"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "monkey-core",
 ]

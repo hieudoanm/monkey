@@ -8,6 +8,7 @@ VS Code extension providing Monkey C/Jungle editor support for Connect IQ Monkey
 
 - Syntax highlighting/language config for Monkey C (`.mc`, `.mb`, `.mcgen`) and Jungle (`.jungle`).
 - Document formatting for Monkey C/Jungle.
+- Language server client (`monkey lsp` via `vscode-languageclient`): diagnostics, hover, definition, references, rename, completion, signature help. Falls back to lint-only diagnostics when the CLI is unavailable.
 - Dark theme and file icons.
 - `Monkey C: Runtime Preview (Simulator)` command using a local Connect IQ SDK (`monkeyc`/`connectiq`/`monkeydo`).
 
@@ -15,7 +16,9 @@ The formatter and runtime preview are local extension features; this extension i
 
 ## Source layout
 
-- `src/extension.ts` — activation, formatting providers, commands.
+- `src/extension.ts` — activation, formatting providers, commands, LSP/lint wiring.
+- `src/lsp-client.ts` — `vscode-languageclient` wrapper for `monkey lsp`; falls back to lint provider when the CLI can't start.
+- `src/lint-monkeyc.ts` — lint-only diagnostic provider (`monkey lint --serve` + `--stdin` fallback), used when LSP is unavailable or `monkeyC.lspEnabled` is false.
 - `src/format-monkeyc.ts` — Monkey C/Jungle formatter logic.
 - `src/format-monkeyc.test.ts` — Vitest tests for formatter.
 - `src/runtime-preview.ts` — finds SDK/key/buildable package, builds PRG, launches simulator/app.

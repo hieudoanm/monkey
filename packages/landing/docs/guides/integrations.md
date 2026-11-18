@@ -62,12 +62,11 @@ diagnostics (`textDocument/publishDiagnostics` — parse errors plus every
 All ranges use UTF-16 positions per the LSP spec.
 
 Configure your editor to launch `monkey lsp` as the Monkey C language
-server (VS Code: `monkeyC`-style custom LSP client or a generic LSP
-extension; Zed: the bundled extension registers `monkey-lsp` — set
-`lsp.monkey.binary` in settings.json, see the Zed extension README). The
-built-in VS Code lint provider uses a persistent `monkey lint --serve`
-process (one spawn, frame protocol) with automatic fallback to
-`lint --stdin` — zero-config either way.
+server. The bundled VS Code extension does this automatically via
+`vscode-languageclient` (`monkeyC.cliPath`, `monkeyC.lspEnabled`) and falls
+back to a persistent `monkey lint --serve` process when the LSP can't
+start. Zed: the bundled extension registers `monkey-lsp` — set
+`lsp.monkey.binary` in settings.json, see the Zed extension README.
 
 ## Suppressing diagnostics
 

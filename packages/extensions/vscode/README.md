@@ -27,7 +27,7 @@ It intentionally does **not** bundle Garmin SDK integration features that requir
 
 - Connect IQ build/run/test/export/debug commands
 - SDK/device management, manifest editor, ERA/Monkey Graph/Monkey Motion launchers
-- Java/DebugServer-backed language server features (autocomplete, definitions, references, rename, hover, type hierarchy, diagnostics from compiler)
+- Java/DebugServer-backed language server features (autocomplete, definitions, references, rename, hover, type hierarchy, diagnostics from compiler). Monkey C language features come from `monkey lsp` instead — see [Language server](#language-server).
 - Task/debugger integrations that execute `monkeyc`, simulator, or SDK tools
 
 For full Connect IQ project workflows, install the official
@@ -117,19 +117,34 @@ node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.
 node -e "JSON.parse(require('fs').readFileSync('syntaxes/jungle.tmLanguage.json','utf8')); console.log('ok')"
 ```
 
-## Lint diagnostics
+## Language server
 
 When the `monkey` CLI (from this repository's `crates/`) is on `PATH`, the
-extension runs `monkey lint --stdin` on Monkey C/Jungle documents and shows
-the results as editor diagnostics — including parse errors, lint rules
-(`unused-variable`, `unreachable-code`, …), on unsaved buffers too.
+extension starts `monkey lsp` and gets full language support on Monkey C and
+Jungle documents:
+
+- **Diagnostics** — parse errors, lex errors, and lint findings published by
+  the language server (unsaved buffers included).
+- **Hover** — signatures and inferred types for declarations and usages.
+- **Go to Definition / Find References / Rename** — project-wide across all
+  `*.mc` files in the workspace.
+- **Completion** — keywords, snippets, project symbols, `Toybox.*` API
+  members (from the SDK's `api.debug.xml`), and member completion on typed
+  receivers.
+- **Signature Help** and **Formatting** (range + full document).
+
+If `monkey lsp` cannot be launched (CLI missing), the extension falls back to
+the lint-only diagnostic provider (`monkey lint --serve`, one persistent
+process).
 
 Settings:
 
 - `monkeyC.cliPath` — path to the `monkey` binary (default `monkey`).
-- `monkeyC.lintEnabled` — set `false` to disable lint diagnostics.
+- `monkeyC.lspEnabled` — set `false` to disable the language server and use
+  lint-only diagnostics.
+- `monkeyC.lintEnabled` — set `false` to disable the lint fallback.
 
-These are Monkey toolchain diagnostics, not Garmin compiler diagnostics.
+These are Monkey toolchain features, not Garmin compiler diagnostics.
 
 ## Runtime preview (SDK/simulator)
 
