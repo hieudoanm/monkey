@@ -8,8 +8,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 
 /// Dotted-owner → member names, e.g. `"Toybox.Math"` → `["cos", "sin", ...]`.
+/// Plus `Parent.member` → return type name for `var x = Math.cos()` inference.
 pub struct ToyboxDb {
     members: BTreeMap<String, BTreeSet<String>>,
+    /// `"Math.cos"`-style key (functionEntry parent is unqualified) → type.
+    returns: BTreeMap<String, String>,
+    /// Bare member name → type (first wins) for unqualified calls.
+    return_names: BTreeMap<String, String>,
 }
 
 fn attr(tag: &str, name: &str) -> Option<String> {
@@ -26,6 +31,32 @@ fn owner_of(parent: &str) -> String {
     parent.replace('_', ".")
 }
 
+/// Extract a return type name from a `<functionEntry>` chunk's
+/// `<div class="returns">Returns [Toybox::Lang::Float, ...]</div>` doc.
+/// Multiple types collapse to the first mapped canonical name.
+fn return_type_of(chunk: &str) -> Option<String> {
+    let i = chunk.find("class=\"returns\"")?;
+    let rest = &chunk[i..];
+    let j = rest.find("Returns")? + "Returns".len();
+    let rest = rest[j..].trim_start();
+    let inner = rest.strip_prefix('[')?;
+    let end = inner.find(']')?;
+    let first = inner[..end].split(',').next()?.trim();
+    // `Toybox::Lang::Float` / `Toybox.Lang.Float` → last segment.
+    let seg = first
+        .rsplit("::")
+        .next()
+        .unwrap_or(first)
+        .rsplit('.')
+        .next()
+        .unwrap_or(first);
+    Some(match seg {
+        "Number" | "Float" | "Long" | "Double" => "Number".to_string(),
+        "String" | "Boolean" | "Array" | "Dictionary" | "Method" => seg.to_string(),
+        other => other.to_string(),
+    })
+}
+
 impl ToyboxDb {
     /// Load from the detected SDK's `bin/api.debug.xml`.
     pub fn load() -> Option<Self> {
@@ -35,7 +66,8 @@ impl ToyboxDb {
         Some(Self::parse(&text))
     }
 
-    /// Parse `<entry parent="..." symbol="..."/>` records.
+    /// Parse `<entry parent="..." symbol="..."/>` records plus
+    /// `<functionEntry>` return types from their CDATA docs.
     pub fn parse(xml: &str) -> Self {
         let mut members: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         for chunk in xml.split("<entry ").skip(1) {
@@ -49,20 +81,95 @@ impl ToyboxDb {
             }
             members.entry(owner_of(&parent)).or_default().insert(symbol);
         }
-        ToyboxDb { members }
+        // `<functionEntry>` carries the fuller API but with *unqualified*
+        // parents (`parent="String"`). Resolve each to the qualified owner
+        // (`Toybox.Lang.String`) using the `<entry>`-built map, falling
+        // back to the raw parent name.
+        let mut fns: Vec<(String, String, Option<String>)> = Vec::new(); // (name, parent, ret)
+        for chunk in xml.split("<functionEntry ").skip(1) {
+            let tag_end = chunk.find('>').unwrap_or(0);
+            let tag = &chunk[..tag_end];
+            let (Some(name), Some(parent)) = (attr(tag, "name"), attr(tag, "parent")) else {
+                continue;
+            };
+            if name.contains("&lt;") {
+                continue;
+            }
+            fns.push((name, parent, return_type_of(chunk)));
+        }
+        let resolve = |parent: &str| -> String {
+            let suffix = format!(".{}", parent);
+            members
+                .keys()
+                .find(|k| k.starts_with("Toybox.") && k.ends_with(&suffix))
+                .or_else(|| members.keys().find(|k| k.ends_with(&suffix)))
+                .cloned()
+                .unwrap_or_else(|| owner_of(parent))
+        };
+        let resolved: Vec<(String, String, String, Option<String>)> = fns
+            .iter()
+            .map(|(name, parent, ty)| (name.clone(), resolve(parent), parent.clone(), ty.clone()))
+            .collect();
+        let mut returns = BTreeMap::new();
+        let mut return_names = BTreeMap::new();
+        for (name, owner, raw_parent, ty) in resolved {
+            members
+                .entry(owner.clone())
+                .or_default()
+                .insert(name.clone());
+            // Keep the unqualified parent key too (`Math.cos` lookups).
+            members
+                .entry(owner_of(&raw_parent))
+                .or_default()
+                .insert(name.clone());
+            if let Some(ty) = ty {
+                returns
+                    .entry(format!("{}.{}", owner, name))
+                    .or_insert_with(|| ty.clone());
+                returns
+                    .entry(format!("{}.{}", owner_of(&raw_parent), name))
+                    .or_insert_with(|| ty.clone());
+                return_names.entry(name).or_insert(ty);
+            }
+        }
+        ToyboxDb {
+            members,
+            returns,
+            return_names,
+        }
+    }
+
+    /// Return type of `owner_hint.member` (e.g. `"Math"`, `"cos"`), falling
+    /// back to the bare member name. `None` when unknown.
+    pub fn return_type(&self, owner_hint: &str, member: &str) -> Option<String> {
+        self.returns
+            .get(&format!("{}.{}", owner_hint, member))
+            .or_else(|| self.return_names.get(member))
+            .cloned()
     }
 
     /// Resolve a bare type/module name to a dotted owner path.
     /// `"String"` → `"Toybox.Lang.String"`, `"Dc"` → `"Toybox.WatchUi.Dc"`.
-    /// Exact `"Toybox.X"`/`"X"` matches win; otherwise the first owner whose
-    /// last segment matches (deterministic — BTreeMap order).
+    /// `Toybox.X` exact matches win, then `Toybox.*` suffix matches
+    /// (preferred — the API XML also has sparse unqualified `parent`
+    /// groups like `"Number"` that would shadow them), then bare `X`,
+    /// then any suffix match.
     pub fn find_owner(&self, base: &str) -> Option<String> {
-        for cand in [format!("Toybox.{}", base), base.to_string()] {
-            if self.members.contains_key(&cand) {
-                return Some(cand);
-            }
+        let toybox = format!("Toybox.{}", base);
+        if self.members.contains_key(&toybox) {
+            return Some(toybox);
         }
         let suffix = format!(".{}", base);
+        if let Some(k) = self
+            .members
+            .keys()
+            .find(|k| k.starts_with("Toybox.") && k.ends_with(&suffix))
+        {
+            return Some(k.clone());
+        }
+        if self.members.contains_key(base) {
+            return Some(base.to_string());
+        }
         self.members.keys().find(|k| k.ends_with(&suffix)).cloned()
     }
 
@@ -110,5 +217,24 @@ mod tests {
         assert_eq!(db.members_of("Toybox.Test"), vec!["assert"]);
         assert_eq!(db.children_of("Toybox"), vec!["Math", "Test"]);
         assert_eq!(db.children_of("Toybox.Math"), vec!["FirFilter"]);
+    }
+
+    #[test]
+    fn parses_return_types() {
+        let xml = r#"<functionEntry accessMode="public" name="cos" parent="Math">
+<documentation><![CDATA[<div class="returns">Returns  [Toybox::Lang::Float, Toybox::Lang::Double]</div>]]></documentation>
+</functionEntry>
+<functionEntry accessMode="public" name="format" parent="Lang_Number">
+<documentation><![CDATA[<div class="returns">Returns  [Toybox::Lang::String]</div>]]></documentation>
+</functionEntry>"#;
+        let db = ToyboxDb::parse(xml);
+        assert_eq!(db.return_type("Math", "cos").as_deref(), Some("Number"));
+        assert_eq!(
+            db.return_type("Lang.Number", "format").as_deref(),
+            Some("String")
+        );
+        // Bare-name fallback.
+        assert_eq!(db.return_type("Whatever", "cos").as_deref(), Some("Number"));
+        assert_eq!(db.return_type("Math", "missing"), None);
     }
 }

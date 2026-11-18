@@ -171,6 +171,13 @@ This provides inline diagnostics, hover, go-to-definition, completion,
 formatting, references, rename, and signature help. Jungle buffers get
 diagnostics only.
 
+> **Note:** the `lsp.monkey.binary` settings override is what actually
+> launches the server — Zed uses it in place of the extension's
+> `language_server_command`, so no Rust/WASM code is needed (same pattern
+> as the community `zed-customlsp` extension). It requires a Zed version
+> that honors `lsp.*.binary` for extension-registered servers; verify on
+> first use with `zed: open log` and look for the `monkey` server.
+
 Without `MONKEYC_SDK_PATH`, the CLI checks
 `~/Library/Application Support/Garmin/ConnectIQ/current-sdk.cfg`,
 `~/Library/Application Support/Garmin/ConnectIQ/Sdks`, and the Linux

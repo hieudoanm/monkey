@@ -412,7 +412,7 @@ impl Server {
                         continue;
                     }
                     let scope = intel::enclosing_fn_span(&f.src, d.name_span);
-                    for span in intel::uses_in_mode(&f.src, &word, false, scope) {
+                    for span in intel::uses_in_mode(&f.src, &word, false, scope, None) {
                         if seen.insert((f.uri.clone(), span.start, span.end)) {
                             locs.push(json!({
                                 "uri": f.uri,
@@ -439,7 +439,7 @@ impl Server {
             } else {
                 None
             };
-            for span in intel::uses_in_mode(&f.src, &word, member, cs) {
+            for span in intel::uses_in_mode(&f.src, &word, member, cs, parent.as_deref()) {
                 locs.push(json!({
                     "uri": f.uri,
                     "range": {
@@ -547,7 +547,7 @@ impl Server {
                         }));
                     }
                     let scope = intel::enclosing_fn_span(&f.src, d.name_span);
-                    for span in intel::uses_in_mode(&f.src, &word, false, scope) {
+                    for span in intel::uses_in_mode(&f.src, &word, false, scope, None) {
                         if seen.insert((span.start, span.end)) {
                             edits.push(json!({
                                 "range": {
@@ -570,7 +570,7 @@ impl Server {
                 } else {
                     None
                 };
-                for span in intel::uses_in_mode(&f.src, &word, member, cs) {
+                for span in intel::uses_in_mode(&f.src, &word, member, cs, parent.as_deref()) {
                     edits.push(json!({
                         "range": {
                             "start": position_at_byte(&f.src, span.start as usize),
@@ -749,6 +749,15 @@ impl Server {
                 }
             }
         }
+        if members.is_empty() && class_name.is_none() {
+            // `var x = Math.cos(..)` — resolve the Toybox method's return
+            // type, then complete members of that type.
+            if let Some((owner, member)) = intel::var_call_target(src, base) {
+                if let Some(rt) = self.toybox_return_type(&owner, &member) {
+                    members = self.toybox_members(&rt);
+                }
+            }
+        }
         if members.is_empty() {
             // Prefer the resolved type name (`s: String` → Toybox String
             // members); fall back to the base identifier itself.
@@ -766,6 +775,24 @@ impl Server {
             })
             .collect();
         json!({"isIncomplete": false, "items": items})
+    }
+
+    /// Toybox method return type for `owner.member` calls — tries the full
+    /// dotted owner then its last segment (`Toybox.Math` → `Math`).
+    fn toybox_return_type(&mut self, owner: &str, member: &str) -> Option<String> {
+        if self.toybox.is_none() {
+            self.toybox = Some(Rc::new(toybox::ToyboxDb::load()));
+        }
+        let rc = self.toybox.as_ref()?;
+        let Some(db) = rc.as_ref() else {
+            return None;
+        };
+        db.return_type(owner, member).or_else(|| {
+            owner
+                .rsplit('.')
+                .next()
+                .and_then(|o| db.return_type(o, member))
+        })
     }
 
     /// Toybox API members for `base.` — handles `Toybox.`, `Toybox.Math.`,
