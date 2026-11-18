@@ -14,3 +14,10 @@ rev = "f361cf8bf1be8c7d67b2255a4f8d1a394baf9dd2"
 repository = "https://github.com/hieudoanm/monkey"
 rev = "master"
 path = "packages/extensions/zed/grammars/tree-sitter-jungle"
+
+# Registers `monkey lsp` as a language server for both languages. Zed spawns
+# the binary configured under `lsp.monkey.binary` in settings.json — see
+# README.md "Language server" for the settings snippet.
+[language_servers.monkey-lsp]
+name = "monkey"
+languages = ["Monkey C", "Jungle"]

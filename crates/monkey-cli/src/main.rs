@@ -28,6 +28,7 @@ use monkey_core::{
     diagnostics_json_all, diagnostics_sarif, render_diagnostics, Diagnostic, FileDiagnostics,
 };
 
+mod api_check;
 mod build;
 mod manifest_check;
 mod scaffold;
@@ -784,12 +785,20 @@ fn cmd_project(args: &[String]) -> ExitCode {
                 let src = fs::read_to_string(&p.manifest_path).unwrap_or_default();
                 let mstr = p.manifest_path.to_string_lossy().to_string();
                 let diags = manifest_check::validate(&p);
-                if diags.is_empty() {
+                // API-availability check against each product's device
+                // surface (`<id>.api.debug.xml`), reported per .mc file.
+                let api_groups = api_check::validate(&p);
+                let api_count: usize = api_groups.iter().map(|g| g.diags.len()).sum();
+                let manifest_count = diags.len();
+                if diags.is_empty() && api_groups.is_empty() {
                     println!("{}: manifest OK", p.describe());
                     ExitCode::SUCCESS
                 } else {
-                    print_diagnostics(&mstr, &src, &diags);
-                    eprintln!("monkey: {} finding(s)", diags.len());
+                    print_diagnostics(&mstr, &src, &diags[..manifest_count]);
+                    for g in &api_groups {
+                        print_diagnostics(&g.path.to_string_lossy(), &g.src, &g.diags);
+                    }
+                    eprintln!("monkey: {} finding(s)", manifest_count + api_count);
                     ExitCode::from(1)
                 }
             }

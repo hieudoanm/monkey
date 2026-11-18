@@ -149,6 +149,28 @@ task's `env` object):
 | `MONKEYC_DEVELOPER_KEY` | Developer key used for the build  |
 | `MONKEYC_DEVICE`        | Device id (default `fr55`)        |
 
+## Language server
+
+The extension registers `monkey lsp` as a language server for Monkey C and
+Jungle. Point Zed at the `monkey` CLI in `settings.json`:
+
+```json
+{
+  "lsp": {
+    "monkey": {
+      "binary": {
+        "path": "monkey",
+        "arguments": ["lsp"]
+      }
+    }
+  }
+}
+```
+
+This provides inline diagnostics, hover, go-to-definition, completion,
+formatting, references, rename, and signature help. Jungle buffers get
+diagnostics only.
+
 Without `MONKEYC_SDK_PATH`, the CLI checks
 `~/Library/Application Support/Garmin/ConnectIQ/current-sdk.cfg`,
 `~/Library/Application Support/Garmin/ConnectIQ/Sdks`, and the Linux
