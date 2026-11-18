@@ -14,5 +14,21 @@
     "cwd": "$ZED_DIRNAME",
     "reveal": "no_focus",
     "save": "all"
+  },
+  {
+    "label": "Monkey C: Lint File",
+    "command": "monkey",
+    "args": ["lint", "$ZED_FILE"],
+    "cwd": "$ZED_DIRNAME",
+    "reveal": "always",
+    "save": "all"
+  },
+  {
+    "label": "Monkey C: Check Project",
+    "command": "monkey",
+    "args": ["check", "$ZED_WORKTREE_ROOT"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "save": "all"
   }
 ]

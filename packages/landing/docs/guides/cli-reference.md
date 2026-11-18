@@ -28,7 +28,13 @@ monkey format [--check|--write] [--stdin] [--indent-spaces N|--indent-tabs] [pat
 
 ```bash
 monkey lint [paths...]
+monkey lint --stdin [label]   # source from stdin → JSON on stdout
 ```
+
+`--stdin` reads source from stdin and always emits a JSON diagnostics array
+(SARIF with `--sarif`) — used by editor integrations to lint unsaved buffers.
+The optional `label` (e.g. `App.mc`, `file.jungle`) selects the language;
+anything not ending in `.jungle` is treated as Monkey C.
 
 Runs text rules, lexical/syntax diagnostics, and AST-backed lint rules.
 Diagnostics print as `path:line:col: severity: message [code]` and the exit

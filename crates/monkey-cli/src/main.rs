@@ -53,6 +53,8 @@ FORMAT OPTIONS:
 LINT/CHECK:
     Diagnostics are printed as `path:line:col: severity: message [code]`.
     --json emits a JSON array; --sarif emits a SARIF 2.1.0 log.
+    `lint --stdin [label]` reads source from stdin and always emits JSON
+    (SARIF with --sarif) for editor integrations.
     Exits non-zero when any diagnostic or format diff is found.
 
 ENVIRONMENT:
@@ -225,6 +227,46 @@ fn cmd_lint(args: &[String], with_format_check: bool) -> ExitCode {
     let check_fmt = with_format_check || args.iter().any(|a| a == "--check");
     let json_out = args.iter().any(|a| a == "--json");
     let sarif_out = args.iter().any(|a| a == "--sarif");
+    let use_stdin = args.iter().any(|a| a == "--stdin");
+
+    // `lint --stdin [--json|--sarif] [label]` — lint source from stdin so
+    // editor integrations can check unsaved buffers. The first positional
+    // arg labels the pseudo-file (used for language detection + output path).
+    if use_stdin {
+        let label = positional(args)
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "<stdin>".to_string());
+        let src = read_stdin();
+        let is_monkeyc = !label.ends_with(".jungle");
+        let mut diags = if is_monkeyc {
+            lint_monkeyc(&src, &label)
+        } else {
+            let mut d = Vec::new();
+            lint_text(&src, &mut d);
+            d
+        };
+        diags.sort_by_key(|d| d.span.map(|s| s.start).unwrap_or(u32::MAX));
+        let files = [FileDiagnostics {
+            path: &label,
+            src: &src,
+            diagnostics: &diags,
+        }];
+        // stdin mode emits machine-readable output for editor integrations:
+        // JSON by default, SARIF with --sarif.
+        if sarif_out {
+            print!("{}", diagnostics_sarif(&files));
+        } else {
+            print!("{}", diagnostics_json_all(&files));
+        }
+        let findings = diags.len();
+        if findings > 0 {
+            eprintln!("monkey: {} finding(s)", findings);
+            return ExitCode::from(1);
+        }
+        return ExitCode::SUCCESS;
+    }
+
     let files = collect_files(&positional(args), &["mc", "jungle"]);
     if files.is_empty() {
         eprintln!("monkey: no .mc or .jungle files found");

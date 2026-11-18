@@ -117,6 +117,20 @@ node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.
 node -e "JSON.parse(require('fs').readFileSync('syntaxes/jungle.tmLanguage.json','utf8')); console.log('ok')"
 ```
 
+## Lint diagnostics
+
+When the `monkey` CLI (from this repository's `crates/`) is on `PATH`, the
+extension runs `monkey lint --stdin` on Monkey C/Jungle documents and shows
+the results as editor diagnostics — including parse errors, lint rules
+(`unused-variable`, `unreachable-code`, …), on unsaved buffers too.
+
+Settings:
+
+- `monkeyC.cliPath` — path to the `monkey` binary (default `monkey`).
+- `monkeyC.lintEnabled` — set `false` to disable lint diagnostics.
+
+These are Monkey toolchain diagnostics, not Garmin compiler diagnostics.
+
 ## Runtime preview (SDK/simulator)
 
 This extension can launch a true Connect IQ runtime preview when the Garmin SDK is installed locally:

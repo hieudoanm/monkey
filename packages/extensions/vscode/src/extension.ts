@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { formatJungle, formatMonkeyC, type FormatOptions } from './format-monkeyc';
+import { MonkeyLintProvider } from './lint-monkeyc';
 import { runtimePreview } from './runtime-preview';
 
 function fullRange(document: vscode.TextDocument): vscode.Range {
@@ -24,6 +25,8 @@ function formattingOptions(
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  const lintProvider = new MonkeyLintProvider();
+
   const monkeyc = vscode.languages.registerDocumentFormattingEditProvider(
     { language: 'monkeyc', scheme: 'file' },
     {
@@ -51,7 +54,7 @@ export function activate(context: vscode.ExtensionContext): void {
     await runtimePreview(context);
   });
 
-  context.subscriptions.push(monkeyc, jungle, formatCommand, previewCommand);
+  context.subscriptions.push(monkeyc, jungle, formatCommand, previewCommand, lintProvider);
 }
 
 export function deactivate(): void {}

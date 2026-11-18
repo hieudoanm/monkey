@@ -119,10 +119,15 @@ formatter.
 
 ## Runtime preview
 
-The extension ships two tasks for Monkey C and Jungle buffers:
+The extension ships four tasks for Monkey C and Jungle buffers:
 
 - **Monkey C: Runtime Preview** — build, start the simulator, and launch the PRG.
 - **Monkey C: Build PRG** — build only.
+- **Monkey C: Lint File** — run `monkey lint` on the current file.
+- **Monkey C: Check Project** — run `monkey check` on the worktree.
+
+The lint/check tasks call the `monkey` CLI (this repository's `crates/` Rust
+toolchain), which must be on `PATH`.
 
 Run them from **task: spawn** (`Cmd+Shift+P` → `task: spawn`).
 
