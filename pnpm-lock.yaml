@@ -203,7 +203,7 @@ importers:
   packages/extensions/vscode:
     dependencies:
       vscode-languageclient:
-        specifier: ^11.0.0
+        specifier: 11.0.0
         version: 11.0.0
     devDependencies:
       '@eslint/js':
