@@ -7,13 +7,13 @@ on:
   pull_request:
     branches: [master]
     paths:
-      - 'crates/**'
-      - 'packages/extensions/vscode/**'
-      - 'packages/extensions/zed/**'
-      - 'packages/landing/**'
-      - 'packages/README.md'
-      - 'scripts/**'
-      - '.github/workflows/ci.yaml'
+      - "crates/**"
+      - "packages/extensions/vscode/**"
+      - "packages/extensions/zed/**"
+      - "packages/landing/**"
+      - "packages/README.md"
+      - "scripts/**"
+      - ".github/workflows/ci.yaml"
   workflow_dispatch:
 
 permissions:
@@ -232,7 +232,7 @@ jobs:
         uses: softprops/action-gh-release@v3.0.4
         with:
           tag_name: latest
-          name: 'Monkey C (latest)'
+          name: "Monkey C (latest)"
           target_commitish: ${{ github.sha }}
           body_path: RELEASE.md
           files: dist/**
