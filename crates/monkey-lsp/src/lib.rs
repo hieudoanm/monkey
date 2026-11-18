@@ -390,16 +390,42 @@ impl Server {
             .into_iter()
             .find(|(f, _)| f.uri == uri)
             .or_else(|| idx.find_decls(&word).into_iter().next());
-        let (member, parent) = target
+        let (member, parent, kind) = target
             .map(|(_, d)| {
                 (
                     matches!(d.kind, "method" | "field" | "enum-member"),
                     d.parent.clone(),
+                    d.kind,
                 )
             })
-            .unwrap_or((false, None));
+            .unwrap_or((false, None, ""));
+        let is_local = matches!(kind, "variable" | "param");
         let mut locs: Vec<Value> = Vec::new();
+        let mut seen = std::collections::BTreeSet::new();
         for f in &idx.files {
+            if is_local {
+                // Locals/params are function-scoped: only files that declare
+                // this name as a local, and only uses inside each
+                // declaration's enclosing function.
+                for (_, d) in idx.find_decls_in(&f.uri, &word) {
+                    if !matches!(d.kind, "variable" | "param") {
+                        continue;
+                    }
+                    let scope = intel::enclosing_fn_span(&f.src, d.name_span);
+                    for span in intel::uses_in_mode(&f.src, &word, false, scope) {
+                        if seen.insert((f.uri.clone(), span.start, span.end)) {
+                            locs.push(json!({
+                                "uri": f.uri,
+                                "range": {
+                                    "start": position_at_byte(&f.src, span.start as usize),
+                                    "end": position_at_byte(&f.src, span.end as usize),
+                                },
+                            }));
+                        }
+                    }
+                }
+                continue;
+            }
             let cs = if member {
                 // Bare-ident uses only count inside the declaring class;
                 // files without it get an empty span (member/path uses
@@ -425,6 +451,21 @@ impl Server {
         }
         if include_decl {
             for (f, d) in idx.find_decls(&word) {
+                if is_local {
+                    // Only the declaration(s) whose scope contains the cursor
+                    // are this symbol — same-named locals elsewhere are not.
+                    let in_scope = if f.uri == uri {
+                        match intel::enclosing_fn_span(&f.src, d.name_span) {
+                            Some(scope) => off >= scope.start as usize && off < scope.end as usize,
+                            None => true, // top-level decl: file scope
+                        }
+                    } else {
+                        false
+                    };
+                    if !in_scope {
+                        continue;
+                    }
+                }
                 locs.push(json!({
                     "uri": f.uri,
                     "range": {
@@ -464,44 +505,89 @@ impl Server {
             .iter()
             .find(|(f, _)| f.uri == uri)
             .or_else(|| found.first());
-        let (member, parent) = target
+        let (member, parent, kind) = target
             .map(|(_, d)| {
                 (
                     matches!(d.kind, "method" | "field" | "enum-member"),
                     d.parent.clone(),
+                    d.kind,
                 )
             })
-            .unwrap_or((false, None));
+            .unwrap_or((false, None, ""));
+        let is_local = matches!(kind, "variable" | "param");
         let mut changes = serde_json::Map::new();
         for f in &idx.files {
             let mut edits: Vec<Value> = Vec::new();
-            let cs = if member {
-                Some(
-                    parent
-                        .as_deref()
-                        .and_then(|p| intel::class_span(&f.src, p))
-                        .unwrap_or(Span::new(0, 0)),
-                )
+            if is_local {
+                // Locals/params: only decls in scope of the cursor, and uses
+                // restricted to each declaration's enclosing function.
+                let mut seen = std::collections::BTreeSet::new();
+                for (_, d) in idx.find_decls_in(&f.uri, &word) {
+                    if !matches!(d.kind, "variable" | "param") {
+                        continue;
+                    }
+                    let in_scope = if f.uri == uri {
+                        match intel::enclosing_fn_span(&f.src, d.name_span) {
+                            Some(scope) => off >= scope.start as usize && off < scope.end as usize,
+                            None => true,
+                        }
+                    } else {
+                        false
+                    };
+                    if !in_scope {
+                        continue;
+                    }
+                    if seen.insert((d.name_span.start, d.name_span.end)) {
+                        edits.push(json!({
+                            "range": {
+                                "start": position_at_byte(&f.src, d.name_span.start as usize),
+                                "end": position_at_byte(&f.src, d.name_span.end as usize),
+                            },
+                            "newText": new_name,
+                        }));
+                    }
+                    let scope = intel::enclosing_fn_span(&f.src, d.name_span);
+                    for span in intel::uses_in_mode(&f.src, &word, false, scope) {
+                        if seen.insert((span.start, span.end)) {
+                            edits.push(json!({
+                                "range": {
+                                    "start": position_at_byte(&f.src, span.start as usize),
+                                    "end": position_at_byte(&f.src, span.end as usize),
+                                },
+                                "newText": new_name,
+                            }));
+                        }
+                    }
+                }
             } else {
-                None
-            };
-            for span in intel::uses_in_mode(&f.src, &word, member, cs) {
-                edits.push(json!({
-                    "range": {
-                        "start": position_at_byte(&f.src, span.start as usize),
-                        "end": position_at_byte(&f.src, span.end as usize),
-                    },
-                    "newText": new_name,
-                }));
-            }
-            for (_, d) in idx.find_decls_in(&f.uri, &word) {
-                edits.push(json!({
-                    "range": {
-                        "start": position_at_byte(&f.src, d.name_span.start as usize),
-                        "end": position_at_byte(&f.src, d.name_span.end as usize),
-                    },
-                    "newText": new_name,
-                }));
+                let cs = if member {
+                    Some(
+                        parent
+                            .as_deref()
+                            .and_then(|p| intel::class_span(&f.src, p))
+                            .unwrap_or(Span::new(0, 0)),
+                    )
+                } else {
+                    None
+                };
+                for span in intel::uses_in_mode(&f.src, &word, member, cs) {
+                    edits.push(json!({
+                        "range": {
+                            "start": position_at_byte(&f.src, span.start as usize),
+                            "end": position_at_byte(&f.src, span.end as usize),
+                        },
+                        "newText": new_name,
+                    }));
+                }
+                for (_, d) in idx.find_decls_in(&f.uri, &word) {
+                    edits.push(json!({
+                        "range": {
+                            "start": position_at_byte(&f.src, d.name_span.start as usize),
+                            "end": position_at_byte(&f.src, d.name_span.end as usize),
+                        },
+                        "newText": new_name,
+                    }));
+                }
             }
             if !edits.is_empty() {
                 edits.sort_by(|a, b| {
@@ -1113,6 +1199,44 @@ mod tests {
         let locs = resp["result"].as_array().unwrap().clone();
         assert!(locs.len() >= 2, "expected decl + use, got {}", locs.len());
 
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rename_local_is_function_scoped() {
+        let src = "class A {\n  function f() {\n    var tmp = 1;\n    var y = tmp;\n  }\n  function g() {\n    var tmp = 2;\n    var z = tmp;\n  }\n}\n";
+        let dir = std::env::temp_dir().join(format!("monkey-lsp-scope-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("scope.mc"), src).unwrap();
+        let uri = index::path_to_uri(&dir.join("scope.mc"));
+        let mut s = Server::new();
+        s.handle(&msg(
+            "initialize",
+            json!({"workspaceFolders": [{"uri": index::path_to_uri(&dir), "name": "t"}]}),
+            Some(0),
+        ));
+        s.handle(&msg(
+            "textDocument/didOpen",
+            json!({"textDocument": {"uri": uri, "languageId": "monkeyc", "version": 1, "text": src}}),
+            None,
+        ));
+        // Rename `tmp` declared in f() — line 2, char 9.
+        let out = s.handle(&msg(
+            "textDocument/rename",
+            json!({"textDocument": {"uri": uri},
+                   "position": {"line": 2, "character": 9},
+                   "newName": "renamed"}),
+            Some(1),
+        ));
+        let resp = out.response.unwrap();
+        let edits = resp["result"]["changes"][uri].as_array().unwrap();
+        // f()'s decl + use only; g()'s same-named local must be untouched.
+        assert_eq!(edits.len(), 2, "got {:?}", resp["result"]);
+        let lines: Vec<u64> = edits
+            .iter()
+            .map(|e| e["range"]["start"]["line"].as_u64().unwrap())
+            .collect();
+        assert!(lines.iter().all(|l| *l <= 3), "lines: {:?}", lines);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
