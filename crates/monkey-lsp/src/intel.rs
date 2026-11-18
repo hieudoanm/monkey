@@ -36,16 +36,33 @@ pub struct Decl {
 }
 
 fn type_text(t: &Option<TypeRef>) -> String {
-    t.as_ref()
-        .map(|t| {
-            let path: Vec<&str> = t.path.iter().map(|i| i.text.as_str()).collect();
-            let mut s = path.join(".");
-            if t.nullable {
-                s.push('?');
+    t.as_ref().map(type_ref_text).unwrap_or_default()
+}
+
+fn type_ref_text(t: &TypeRef) -> String {
+    match t {
+        TypeRef::Path { path, nullable, .. } => {
+            let s: Vec<&str> = path.iter().map(|i| i.text.as_str()).collect();
+            let mut out = s.join(".");
+            if *nullable {
+                out.push('?');
             }
-            s
-        })
-        .unwrap_or_default()
+            out
+        }
+        TypeRef::Array { elems, .. } => format!(
+            "[{}]",
+            elems
+                .iter()
+                .map(type_ref_text)
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        TypeRef::Union { variants, .. } => variants
+            .iter()
+            .map(type_ref_text)
+            .collect::<Vec<_>>()
+            .join(" or "),
+    }
 }
 
 fn params_text(f: &FunctionDecl) -> String {
@@ -534,9 +551,23 @@ impl Visitor for UseCollector {
 
     fn visit_type(&mut self, t: &TypeRef) {
         // `new Foo()` / `as Foo` type paths count as uses of the type name.
-        if let Some(last) = t.path.last() {
-            if last.text == self.name {
-                self.uses.push(last.span);
+        match t {
+            TypeRef::Path { path, .. } => {
+                if let Some(last) = path.last() {
+                    if last.text == self.name {
+                        self.uses.push(last.span);
+                    }
+                }
+            }
+            TypeRef::Array { elems, .. } => {
+                for e in elems {
+                    self.visit_type(e);
+                }
+            }
+            TypeRef::Union { variants, .. } => {
+                for v in variants {
+                    self.visit_type(v);
+                }
             }
         }
     }
@@ -592,6 +623,53 @@ pub fn formatting(src: &str, is_jungle: bool) -> Value {
         "range": {"start": {"line": 0, "character": 0}, "end": end},
         "newText": formatted,
     }])
+}
+
+/// `textDocument/rename` — same-file rename as a WorkspaceEdit.
+/// Returns `None` when the position isn't on a declared symbol or the new
+/// name isn't a valid identifier.
+pub fn rename(src: &str, uri: &str, offset: usize, new_name: &str) -> Option<Value> {
+    if new_name.is_empty()
+        || !new_name
+            .chars()
+            .next()
+            .map(|c| c.is_alphabetic() || c == '_')
+            .unwrap_or(false)
+        || !new_name.chars().all(|c| c.is_alphanumeric() || c == '_')
+    {
+        return None;
+    }
+    let (start, _) = ident_at(src, offset)?;
+    let word: String = src[start..]
+        .chars()
+        .take_while(|c| c.is_alphanumeric() || *c == '_')
+        .collect();
+    if word.is_empty() {
+        return None;
+    }
+    let decls = collect_decls(src);
+    let decl = decls.iter().find(|d| d.name == word)?;
+    let parsed = monkey_parser::parse(src);
+    let mut c = UseCollector {
+        name: word.clone(),
+        uses: Vec::new(),
+    };
+    c.visit_source_file(&parsed.file);
+    let mut spans = c.uses;
+    spans.retain(|s| s.start as usize != decl.name_span.start as usize);
+    spans.push(decl.name_span);
+    spans.sort_by_key(|s| s.start);
+    spans.dedup();
+    let edits: Vec<Value> = spans
+        .iter()
+        .map(|s| {
+            json!({
+                "range": range_json(src, *s),
+                "newText": new_name,
+            })
+        })
+        .collect();
+    Some(json!({"changes": {uri: edits}}))
 }
 
 #[cfg(test)]
@@ -696,5 +774,18 @@ mod tests {
         assert!(r[0]["newText"].as_str().unwrap().contains("function f()"));
         let clean = "var x = 1;\n";
         assert!(formatting(clean, false).is_null());
+    }
+
+    #[test]
+    fn rename_produces_workspace_edit() {
+        let src = "class A {\n  var c = 0;\n  function f() {\n    c = 1;\n    c = c + 1;\n  }\n}\n";
+        let off = src.rfind("c + 1").unwrap();
+        let edit = rename(src, "file:///a.mc", off, "count").unwrap();
+        let edits = edit["changes"]["file:///a.mc"].as_array().unwrap();
+        // decl + uses
+        assert!(edits.len() >= 4, "got {}", edits.len());
+        assert!(edits.iter().all(|e| e["newText"] == "count"));
+        assert!(rename(src, "file:///a.mc", off, "1bad").is_none());
+        assert!(rename(src, "file:///a.mc", off, "has space").is_none());
     }
 }

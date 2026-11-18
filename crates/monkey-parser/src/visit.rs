@@ -110,7 +110,21 @@ pub trait Visitor {
         }
     }
 
-    fn visit_type(&mut self, _t: &TypeRef) {}
+    fn visit_type(&mut self, t: &TypeRef) {
+        match t {
+            TypeRef::Path { .. } => {}
+            TypeRef::Array { elems, .. } => {
+                for e in elems {
+                    self.visit_type(e);
+                }
+            }
+            TypeRef::Union { variants, .. } => {
+                for v in variants {
+                    self.visit_type(v);
+                }
+            }
+        }
+    }
 
     fn visit_block(&mut self, b: &Block) {
         for s in &b.stmts {

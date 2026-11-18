@@ -30,15 +30,33 @@ impl Ident {
     }
 }
 
-/// A type reference such as `Lang.Number`, `WatchUi.WatchFace`, or
-/// `Lang.Number?` (nullable).
+/// A type reference: `Lang.Number`, `Lang.Number?`, `[View]`, or a union
+/// like `[Views] or [Views, InputDelegates]`.
 #[derive(Clone, Debug)]
-pub struct TypeRef {
-    pub span: Span,
-    /// Dotted path segments, e.g. `["Lang", "Number"]`.
-    pub path: Vec<Ident>,
-    /// Whether the type is nullable (`Type?`).
-    pub nullable: bool,
+pub enum TypeRef {
+    /// Dotted path + optional `?`.
+    Path {
+        span: Span,
+        /// Dotted path segments, e.g. `["Lang", "Number"]`.
+        path: Vec<Ident>,
+        /// Whether the type is nullable (`Type?`).
+        nullable: bool,
+    },
+    /// `[T]` or `[T, U, ...]` array/tuple type.
+    Array { span: Span, elems: Vec<TypeRef> },
+    /// `A or B or ...` union type.
+    Union { span: Span, variants: Vec<TypeRef> },
+}
+
+impl TypeRef {
+    /// Source span of the type.
+    pub fn span(&self) -> Span {
+        match self {
+            TypeRef::Path { span, .. }
+            | TypeRef::Array { span, .. }
+            | TypeRef::Union { span, .. } => *span,
+        }
+    }
 }
 
 /// An annotation `(:name)` or `(:name, arg, ...)`.

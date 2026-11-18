@@ -23,10 +23,11 @@ monkey doctor [--sdk <path>] [--key <path>] [path]
 monkey sdk    list|detect|info
 monkey device list|info <id>
 monkey project info [path]
+monkey new    <dir> [--name X] [--type watchface] [--device id] [--min-api x.y.z]
 monkey build  [--device <id>] [--sdk <path>] [--key <path>] [path]
 monkey run    [--device <id>] [--sdk <path>] [--key <path>] [--no-simulator] [path]
 monkey mcp                          # MCP server (stdio JSON-RPC)
-monkey lsp                          # language server (diagnostics, symbols, hover, go-to-def, completion)
+monkey lsp                          # language server (diagnostics, symbols, hover, definition, references, completion, formatting, rename)
 ```
 
 - `format` — default prints formatted source to stdout; `--check` reports
@@ -46,7 +47,7 @@ monkey lsp                          # language server (diagnostics, symbols, hov
 - `run` — build + launch `connectiq` simulator + `monkeydo` deploy
   (`--no-simulator` skips the simulator).
 - `mcp` — MCP server exposing lint/parse/format/project/sdk/device tools.
-- `lsp` — language server: lint diagnostics plus document symbols, hover, definition, and completion.
+- `lsp` — language server: lint diagnostics plus document symbols, hover, definition, references, completion, formatting, and rename.
 
 SDK and key resolution mirrors the editor extensions: explicit flag →
 `MONKEYC_SDK_PATH`/`MONKEY_SDK` and `MONKEYC_DEVELOPER_KEY`/`MONKEY_KEY` env

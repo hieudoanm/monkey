@@ -69,7 +69,8 @@ impl Server {
                             "definitionProvider": true,
                             "completionProvider": {"triggerCharacters": [".", " "]},
                             "documentFormattingProvider": true,
-                            "referencesProvider": true
+                            "referencesProvider": true,
+                            "renameProvider": {"prepareProvider": false}
                         },
                         "serverInfo": {"name": "monkey", "version": env!("CARGO_PKG_VERSION")}
                     }
@@ -171,6 +172,10 @@ impl Server {
                 let result = self.references_result(&params);
                 out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
             }
+            "textDocument/rename" => {
+                let result = self.rename_result(&params);
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
             _ if is_request => {
                 out.response = Some(json!({
                     "jsonrpc": "2.0",
@@ -260,6 +265,20 @@ impl Server {
         match self.offset_param(params, &src) {
             Some(off) => intel::references(&src, &uri, off, include_decl),
             None => json!([]),
+        }
+    }
+
+    fn rename_result(&self, params: &Value) -> Value {
+        let Some((uri, lang, src)) = self.doc_text(params) else {
+            return Value::Null;
+        };
+        if lang == "jungle" {
+            return Value::Null;
+        }
+        let new_name = params.get("newName").and_then(Value::as_str).unwrap_or("");
+        match self.offset_param(params, &src) {
+            Some(off) => intel::rename(&src, &uri, off, new_name).unwrap_or(Value::Null),
+            None => Value::Null,
         }
     }
 }

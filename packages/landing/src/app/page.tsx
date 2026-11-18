@@ -28,7 +28,7 @@ const FEATURES: Feature[] = [
   {
     icon: LuTerminal,
     title: 'monkey CLI',
-    body: 'Zero-dependency Rust binary with format, lint, check, parse, tokens, doctor, sdk, device, project, build, run, mcp, and lsp commands — it compiles PRGs, launches the simulator, and serves MCP/LSP over stdio. Prebuilt for Linux, macOS, and Windows.',
+    body: 'Zero-dependency Rust binary with format, lint, check, parse, tokens, doctor, sdk, device, project, new, build, run, mcp, and lsp commands — it compiles PRGs, launches the simulator, and serves MCP/LSP over stdio. Prebuilt for Linux, macOS, and Windows.',
   },
   {
     icon: LuBraces,
@@ -58,7 +58,7 @@ const FEATURES: Feature[] = [
   {
     icon: LuBot,
     title: 'MCP & language server',
-    body: 'monkey mcp exposes lint, parse, format, project, SDK, and device tools to AI agents over stdio; monkey lsp adds diagnostics, document symbols, hover, go-to-definition, find-references, completion, and formatting to any LSP-capable editor.',
+    body: 'monkey mcp exposes lint, parse, format, project, SDK, and device tools to AI agents over stdio; monkey lsp adds diagnostics, document symbols, hover, go-to-definition, find-references, completion, formatting, and rename to any LSP-capable editor.',
   },
   {
     icon: LuPackage,
@@ -192,7 +192,7 @@ const HomePage: NextPage = () => (
       <div className="mx-auto w-full max-w-6xl px-5">
         <SectionHead
           title="The monkey CLI"
-          description="format, lint, check, parse, doctor, sdk, device, project, build, run, mcp, and lsp — files or whole directories, with editor-friendly stdin/stdout, JSON/SARIF, SDK build modes, and stdio MCP/LSP servers."
+          description="format, lint, check, parse, doctor, sdk, device, project, new, build, run, mcp, and lsp — files or whole directories, with editor-friendly stdin/stdout, JSON/SARIF, SDK build modes, and stdio MCP/LSP servers."
         />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {DEMO_TERMINALS.map((t) => (

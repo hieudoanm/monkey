@@ -3,11 +3,11 @@
 Language support and tooling for Garmin Connect IQ Monkey C and Jungle:
 
 - `monkey` — standalone CLI for `*.mc`/`*.jungle` files: `format`, `lint`,
-  `check`, `parse`, `tokens`, `doctor`, `sdk`, `device`, `project`, `build`,
-  and `run`, plus `mcp` and `lsp` stdio servers for agent/editor
+  `check`, `parse`, `tokens`, `doctor`, `sdk`, `device`, `project`, `new`,
+  `build`, and `run`, plus `mcp` and `lsp` stdio servers for agent/editor
   integrations (MCP tools for lint/parse/format/project/SDK/device; LSP
   diagnostics, document symbols, hover, definition, references,
-  completion, and formatting; MCP also exposes build/run tools). JSON/SARIF output for CI, `--stdin` modes, `monkey-ignore`
+  completion, formatting, and rename; MCP also exposes build/run tools). JSON/SARIF output for CI, `--stdin` modes, `monkey-ignore`
   suppression comments, Connect IQ SDK / developer-key / device discovery,
   and PRG builds + simulator launches via the official SDK. Prebuilt binaries for
   Linux (x86_64), macOS (Apple Silicon), and Windows (x86_64) are attached
