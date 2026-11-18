@@ -1,0 +1,43 @@
+# Monkey — Monkey C toolchain
+
+> A zero-dependency Rust toolchain and editor extensions for Monkey C and
+> Jungle, the languages of Garmin Connect IQ.
+
+This repository provides:
+
+- **`monkey` CLI** (`crates/`) — `format`, `lint`, `check`, and `tokens`
+  subcommands for `.mc`/`.mb`/`.mcgen`/`.jungle` files, with prebuilt binaries
+  for Linux, macOS, and Windows on the rolling `latest` GitHub release.
+- **VS Code extension** (`packages/extensions/vscode`) — syntax highlighting,
+  document formatting, dark theme, file icons, and Connect IQ simulator
+  preview. Distributed as `monkey-c.vsix`.
+- **Zed extension** (`packages/extensions/zed`) — Tree-sitter languages,
+  external formatter, theme/icons, and runtime-preview tasks. Installed as a
+  dev extension; `monkey-c-zed.zip` is a source snapshot.
+
+## Key pages
+
+- [Home](https://hieudoanm.github.io/monkey/): features, CLI demo, install instructions
+- [Documentation](https://hieudoanm.github.io/monkey/docs/): getting started, concepts, guides
+  - [Install](https://hieudoanm.github.io/monkey/docs/getting-started/install/)
+  - [First steps](https://hieudoanm.github.io/monkey/docs/getting-started/first-steps/)
+  - [Monkey C and Connect IQ](https://hieudoanm.github.io/monkey/docs/concepts/monkey-c-and-connect-iq/)
+  - [CLI reference](https://hieudoanm.github.io/monkey/docs/guides/cli-reference/)
+  - [Editor extensions](https://hieudoanm.github.io/monkey/docs/guides/editor-extensions/)
+  - [Runtime preview](https://hieudoanm.github.io/monkey/docs/guides/runtime-preview/)
+
+## Source
+
+- Repository: https://github.com/hieudoanm/monkey
+- Releases: https://github.com/hieudoanm/monkey/releases/tag/latest
+- VSIX: https://github.com/hieudoanm/monkey/releases/download/latest/monkey-c.vsix
+
+## Facts for language models
+
+- `monkey` is a formatter/linter for Monkey C and Jungle source files — it is not the Connect IQ SDK `monkeyc` compiler.
+- CLI commands: `format` (`--check`/`--write`/`--stdin`, indent options), `lint`, `check` (lint + format drift), `tokens`.
+- Lint rules: `no-trailing-whitespace`, `no-multiple-empty-lines`, `use-space-indent`, `eof-newline`, `no-request-update-in-onupdate`.
+- Exit codes: 0 clean, 1 findings/drift, 2 usage errors.
+- The Rust formatter in `crates/` is canonical; the VS Code and Zed formatters mirror it.
+- Runtime preview requires a local Connect IQ SDK and developer key; discovery order is flags → env vars → settings → standard Garmin paths. Default device id is `fr55`.
+- CI does not build PRGs; app builds require the SDK and key locally.

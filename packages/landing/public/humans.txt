@@ -1,0 +1,9 @@
+/* TEAM */
+Project: Monkey — Monkey C toolchain
+Site: https://hieudoanm.github.io/monkey/
+Source: https://github.com/hieudoanm/monkey
+
+/* SITE */
+Last update: 2026/11/18
+Language: English
+Doctype: HTML5
