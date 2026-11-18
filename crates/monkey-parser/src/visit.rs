@@ -22,6 +22,8 @@ pub trait Visitor {
             Item::Enum(d) => self.visit_enum(d),
             Item::Function(d) => self.visit_function(d),
             Item::VarDecl(d) => self.visit_var_decl(d),
+            Item::Module(d) => self.visit_module(d),
+            Item::Typedef(d) => self.visit_typedef(d),
             Item::Error { .. } => {}
         }
     }
@@ -54,6 +56,9 @@ pub trait Visitor {
         match m {
             ClassMember::Field(f) => self.visit_field(f),
             ClassMember::Function(f) => self.visit_function(f),
+            ClassMember::Enum(d) => self.visit_enum(d),
+            ClassMember::Class(d) => self.visit_class(d),
+            ClassMember::Typedef(d) => self.visit_typedef(d),
             ClassMember::Error { .. } => {}
         }
     }
@@ -110,6 +115,23 @@ pub trait Visitor {
         }
     }
 
+    fn visit_module(&mut self, d: &ModuleDecl) {
+        for m in &d.members {
+            self.visit_item(m);
+        }
+    }
+
+    fn visit_typedef(&mut self, d: &TypedefDecl) {
+        match &d.target {
+            TypedefTarget::Type(t) => self.visit_type(t),
+            TypedefTarget::Interface { members, .. } => {
+                for m in members {
+                    self.visit_function(m);
+                }
+            }
+        }
+    }
+
     fn visit_type(&mut self, t: &TypeRef) {
         match t {
             TypeRef::Path { .. } => {}
@@ -121,6 +143,24 @@ pub trait Visitor {
             TypeRef::Union { variants, .. } => {
                 for v in variants {
                     self.visit_type(v);
+                }
+            }
+            TypeRef::Generic { args, .. } => {
+                for a in args {
+                    self.visit_type(a);
+                }
+            }
+            TypeRef::Dict { entries, .. } => {
+                for e in entries {
+                    self.visit_type(&e.type_);
+                }
+            }
+            TypeRef::Method { params, ret, .. } => {
+                for p in params {
+                    self.visit_type(p);
+                }
+                if let Some(r) = ret {
+                    self.visit_type(r);
                 }
             }
         }

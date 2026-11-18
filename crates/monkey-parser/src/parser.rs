@@ -30,6 +30,7 @@ pub fn parse(src: &str) -> ParseResult {
         tokens,
         pos: 0,
         diags: lexed.diagnostics,
+        method_type_ok: true,
     };
     let file = p.parse_file();
     ParseResult {
@@ -42,6 +43,9 @@ struct Parser {
     tokens: Vec<Token>,
     pos: usize,
     diags: Vec<Diagnostic>,
+    /// `false` while parsing the type of a `new` expression, so
+    /// `new Lang.Method(args)` isn't mistaken for a `Method(...)` type.
+    method_type_ok: bool,
 }
 
 // ---------- token helpers ----------
@@ -177,6 +181,10 @@ impl Parser {
             ItemKind::Class
         } else if self.at("enum") {
             ItemKind::Enum
+        } else if self.at("module") {
+            ItemKind::Module
+        } else if self.at("typedef") {
+            ItemKind::Typedef
         } else if self.at("function") {
             ItemKind::Function
         } else if self.at("var") || self.at("const") {
@@ -201,16 +209,38 @@ impl Parser {
             ItemKind::Import => Item::Import(self.parse_import(item_start, annotations)),
             ItemKind::Class => Item::Class(self.parse_class(item_start, annotations)),
             ItemKind::Enum => Item::Enum(self.parse_enum(item_start, annotations)),
+            ItemKind::Module => Item::Module(self.parse_module(item_start, annotations)),
+            ItemKind::Typedef => Item::Typedef(self.parse_typedef(item_start, annotations)),
             ItemKind::Function => {
                 Item::Function(self.parse_function(item_start, annotations, None))
             }
             ItemKind::Var => Item::VarDecl(self.parse_var_decl(item_start, annotations)),
             ItemKind::Memberish => {
                 let visibility = self.parse_visibility();
+                // `public enum`/`public class` etc. — visibility applies
+                // permissively to any following item kind.
                 if self.at("function") {
                     Item::Function(self.parse_function(item_start, annotations, visibility))
-                } else {
+                } else if self.at("var") || self.at("const") {
                     Item::VarDecl(self.parse_var_decl(item_start, annotations))
+                } else if self.at("enum") {
+                    Item::Enum(self.parse_enum(item_start, annotations))
+                } else if self.at("class") {
+                    Item::Class(self.parse_class(item_start, annotations))
+                } else if self.at("module") {
+                    Item::Module(self.parse_module(item_start, annotations))
+                } else if self.at("typedef") {
+                    Item::Typedef(self.parse_typedef(item_start, annotations))
+                } else {
+                    let span = self.cur_span();
+                    self.error(
+                        span,
+                        format!("expected declaration, found {}", self.describe_cur()),
+                    );
+                    self.recover_item();
+                    Item::Error {
+                        span: self.span_since(item_start),
+                    }
                 }
             }
         }
@@ -239,6 +269,8 @@ impl Parser {
             self.cur().text.as_str(),
             "class"
                 | "enum"
+                | "module"
+                | "typedef"
                 | "function"
                 | "var"
                 | "const"
@@ -367,6 +399,15 @@ impl Parser {
     /// `A.B.C` → three Idents.
     fn parse_dotted_path(&mut self) -> Vec<Ident> {
         let mut path = Vec::new();
+        let module_root = self.at("$");
+        if module_root {
+            // Module-qualified path `$.Module.Type`.
+            path.push(Ident::new(self.cur_span(), "$"));
+            self.bump();
+            if self.at(".") {
+                self.bump();
+            }
+        }
         if self.cur().kind == TokenKind::Ident {
             path.push(Ident::new(self.cur_span(), self.cur().text.clone()));
             self.bump();
@@ -413,37 +454,243 @@ impl Parser {
         }
     }
 
-    /// Single type: `[T]` array or dotted `path` with optional `?`.
+    /// Single type: `[T]`, `{ :k as T }`, dotted `path`, optional generic
+    /// args `path<A, B>` or method type `Method(A) as R`, trailing `?`.
+    /// Unions (`A or B`) are handled by `parse_type`.
     fn parse_type_primary(&mut self) -> TypeRef {
+        if self.at("{") {
+            let mut t = self.parse_dict_type();
+            if self.at("?") {
+                self.bump();
+                t.set_nullable();
+            }
+            return t;
+        }
         if self.at("[") {
             let start = self.cur().start as u32;
             self.bump(); // [
             let mut elems = Vec::new();
+            // `new [1000]` — a bare number inside `[...]` is an array size,
+            // not a type; keep it as a pseudo-path so the AST round-trips.
+            let mut push_elem = |p: &mut Self| {
+                if p.cur().kind == TokenKind::Number {
+                    let span = p.cur_span();
+                    let text = p.cur().text.clone();
+                    p.bump();
+                    elems.push(TypeRef::Path {
+                        span,
+                        path: vec![Ident::new(span, text)],
+                        nullable: false,
+                    });
+                } else {
+                    elems.push(p.parse_type());
+                }
+            };
             if !self.at("]") {
-                elems.push(self.parse_type());
+                push_elem(self);
                 while self.at(",") {
                     self.bump();
-                    elems.push(self.parse_type());
+                    push_elem(self);
                 }
             }
             self.expect("]", "']'");
+            let nullable = self.eat_nullable();
             return TypeRef::Array {
                 span: self.span_since(start),
                 elems,
+                nullable,
             };
         }
         let start = self.cur().start as u32;
         let path = self.parse_dotted_path();
-        let nullable = if self.at("?") {
-            self.bump();
-            true
-        } else {
-            false
-        };
+        // Generic args: `Array<Number>`, `Dictionary<String, Number>`.
+        // `>>` may arrive as a single token for nested generics — split it.
+        if self.at("<") {
+            self.bump(); // <
+            let mut args = Vec::new();
+            while !self.at_eof() {
+                args.push(self.parse_type());
+                if self.at(",") {
+                    self.bump();
+                    continue;
+                }
+                break;
+            }
+            if self.eat_gt() {
+                // closed
+            } else {
+                let span = self.cur_span();
+                self.error(
+                    span,
+                    format!(
+                        "expected '>' in generic type, found {}",
+                        self.describe_cur()
+                    ),
+                );
+            }
+            let nullable = self.eat_nullable();
+            return TypeRef::Generic {
+                span: self.span_since(start),
+                path,
+                args,
+                nullable,
+            };
+        }
+        // Method type: `Method(A, B) as R`. Restricted to paths ending in
+        // `Method` so `new Foo(args)` constructor calls aren't misparsed.
+        if self.at("(")
+            && self.method_type_ok
+            && path
+                .last()
+                .is_some_and(|i| i.text == "Method" || i.text == "method")
+        {
+            self.bump(); // (
+            let mut params = Vec::new();
+            while !self.at_eof() && !self.at(")") {
+                if self.at(",") {
+                    self.bump();
+                    continue;
+                }
+                // Params may be named: `msg as PhoneAppMessage`.
+                if self.cur().kind == TokenKind::Ident && self.nth(1).text == "as" {
+                    self.bump(); // name
+                    self.bump(); // as
+                }
+                params.push(self.parse_type());
+                if self.at(",") {
+                    self.bump();
+                } else {
+                    break;
+                }
+            }
+            self.expect(")", "')'");
+            let ret = if self.at("as") {
+                self.bump();
+                Some(Box::new(self.parse_type()))
+            } else {
+                None
+            };
+            let nullable = self.eat_nullable();
+            return TypeRef::Method {
+                span: self.span_since(start),
+                path,
+                params,
+                ret,
+                nullable,
+            };
+        }
+        let nullable = self.eat_nullable();
         TypeRef::Path {
             span: self.span_since(start),
             path,
             nullable,
+        }
+    }
+
+    /// Consume a trailing `?` nullable marker in type position.
+    fn eat_nullable(&mut self) -> bool {
+        if self.at("?") {
+            self.bump();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Consume one `>` for generic-type closing, splitting multi-char
+    /// `>`-only puncts (`>>`, `>>>`) produced by nested generics.
+    /// Returns false when the current token isn't a `>`-run.
+    fn eat_gt(&mut self) -> bool {
+        let text = self.cur().text.clone();
+        if text == ">" {
+            self.bump();
+            return true;
+        }
+        if !text.is_empty() && text.chars().all(|c| c == '>') {
+            // Split: current token becomes the first `>`, remainder is
+            // re-lexed as additional `>` tokens.
+            let start = self.cur().start;
+            let end = self.cur().end;
+            let line = self.cur().line;
+            let col = self.cur().column;
+            let mut pieces = Vec::new();
+            for i in 0..text.len() {
+                pieces.push(Token {
+                    kind: TokenKind::Punct,
+                    text: ">".to_string(),
+                    start: start + i,
+                    end: start + i + 1,
+                    line,
+                    column: col + i as u32,
+                    newlines_before: 0,
+                    space_before: false,
+                });
+            }
+            let _ = end;
+            self.tokens.splice(self.pos..self.pos + 1, pieces);
+            self.bump();
+            return true;
+        }
+        false
+    }
+
+    /// `{ :name as Type, ... }` dictionary type literal.
+    fn parse_dict_type(&mut self) -> TypeRef {
+        let start = self.cur().start as u32;
+        self.bump(); // {
+        let mut entries = Vec::new();
+        while !self.at_eof() && !self.at("}") {
+            if self.at(",") {
+                self.bump();
+                continue;
+            }
+            let estart = self.cur().start as u32;
+            if self.at(":") {
+                self.bump();
+            }
+            if self.cur().kind != TokenKind::Ident {
+                let span = self.cur_span();
+                self.error(
+                    span,
+                    format!(
+                        "expected dictionary type key, found {}",
+                        self.describe_cur()
+                    ),
+                );
+                self.bump();
+                continue;
+            }
+            let name = Ident::new(self.cur_span(), self.cur().text.clone());
+            self.bump();
+            if self.at("as") {
+                self.bump();
+            } else {
+                let span = self.cur_span();
+                self.error(
+                    span,
+                    format!(
+                        "expected 'as' in dictionary type, found {}",
+                        self.describe_cur()
+                    ),
+                );
+            }
+            let type_ = self.parse_type();
+            entries.push(DictTypeEntry {
+                span: self.span_since(estart),
+                name,
+                type_,
+            });
+            if self.at(",") {
+                self.bump();
+            } else {
+                break;
+            }
+        }
+        self.expect("}", "'}'");
+        TypeRef::Dict {
+            span: self.span_since(start),
+            entries,
+            nullable: false,
         }
     }
 
@@ -480,11 +727,31 @@ impl Parser {
     fn parse_class_member(&mut self) -> ClassMember {
         let start = self.cur().start as u32;
         let annotations = self.parse_annotations();
+        // `hidden`/`static` are member modifiers; they may appear before
+        // or after the visibility keyword (`private static const X`).
+        while self.at("hidden") || self.at("static") {
+            self.bump();
+        }
         let visibility = self.parse_visibility();
+        while self.at("hidden") || self.at("static") {
+            self.bump();
+        }
 
         if self.at("function") {
             let f = self.parse_function_inner(start, annotations, visibility);
             return ClassMember::Function(f);
+        }
+        if self.at("enum") {
+            let e = self.parse_enum(start, annotations);
+            return ClassMember::Enum(e);
+        }
+        if self.at("typedef") {
+            let t = self.parse_typedef(start, annotations);
+            return ClassMember::Typedef(t);
+        }
+        if self.at("class") {
+            let c = self.parse_class(start, annotations);
+            return ClassMember::Class(Box::new(c));
         }
         if self.at("var") || self.at("const") {
             let decl = self.parse_field_decl(start, annotations, visibility);
@@ -523,7 +790,17 @@ impl Parser {
     fn at_member_sync(&self) -> bool {
         matches!(
             self.cur().text.as_str(),
-            "function" | "var" | "const" | "public" | "private" | "protected"
+            "function"
+                | "var"
+                | "const"
+                | "enum"
+                | "typedef"
+                | "class"
+                | "static"
+                | "public"
+                | "private"
+                | "protected"
+                | "hidden"
         ) || self.at_annotation_start()
     }
 
@@ -574,7 +851,12 @@ impl Parser {
 
     fn parse_enum(&mut self, start: u32, annotations: Vec<Annotation>) -> EnumDecl {
         self.bump(); // enum
-        let name = self.parse_ident_required("enum name");
+                     // Anonymous enum (`enum { A, B }`) is allowed inside classes.
+        let name = if self.at("{") {
+            Ident::new(self.cur_span(), "")
+        } else {
+            self.parse_ident_required("enum name")
+        };
         let mut members = Vec::new();
         self.expect("{", "'{'");
         while !self.at_eof() && !self.at("}") {
@@ -615,6 +897,128 @@ impl Parser {
             annotations,
             name,
             members,
+        }
+    }
+
+    /// `module Name { item* }` — members are regular items (`var`/`const`/
+    /// `function`), optionally preceded by `hidden`.
+    fn parse_module(&mut self, start: u32, annotations: Vec<Annotation>) -> ModuleDecl {
+        self.bump(); // module
+        let name = self.parse_ident_required("module name");
+        let mut members = Vec::new();
+        self.expect("{", "'{'");
+        while !self.at_eof() && !self.at("}") {
+            while self.at("hidden") {
+                self.bump();
+            }
+            let before = self.pos;
+            members.push(self.parse_item());
+            if self.pos == before {
+                self.bump();
+            }
+        }
+        self.expect("}", "'}'");
+        ModuleDecl {
+            span: self.span_since(start),
+            annotations,
+            name,
+            members,
+        }
+    }
+
+    /// `typedef Name as Type | interface { ... } | { dict-type };`
+    fn parse_typedef(&mut self, start: u32, annotations: Vec<Annotation>) -> TypedefDecl {
+        self.bump(); // typedef
+        let name = self.parse_ident_required("typedef name");
+        if self.at("as") {
+            self.bump();
+        } else {
+            let span = self.cur_span();
+            self.error(
+                span,
+                format!("expected 'as' in typedef, found {}", self.describe_cur()),
+            );
+        }
+        let target = if self.at("interface") {
+            let istart = self.cur().start as u32;
+            self.bump(); // interface
+            let mut members = Vec::new();
+            self.expect("{", "'{'");
+            while !self.at_eof() && !self.at("}") {
+                if self.at(";") || self.at(",") {
+                    self.bump();
+                    continue;
+                }
+                if self.at("function") {
+                    members.push(self.parse_interface_member());
+                } else {
+                    let span = self.cur_span();
+                    self.error(
+                        span,
+                        format!("expected interface member, found {}", self.describe_cur()),
+                    );
+                    self.bump();
+                }
+            }
+            self.expect("}", "'}'");
+            TypedefTarget::Interface {
+                span: self.span_since(istart),
+                members,
+            }
+        } else {
+            TypedefTarget::Type(self.parse_type())
+        };
+        // Trailing `;` is conventional but optional.
+        if self.at(";") {
+            self.bump();
+        }
+        TypedefDecl {
+            span: self.span_since(start),
+            annotations,
+            name,
+            target,
+        }
+    }
+
+    /// `function name(params) (as Type)? ;` inside a typedef interface.
+    fn parse_interface_member(&mut self) -> FunctionDecl {
+        let start = self.cur().start as u32;
+        self.bump(); // function
+        let name = self.parse_ident_required("function name");
+        let mut params = Vec::new();
+        self.expect("(", "'('");
+        while !self.at_eof() && !self.at(")") {
+            if self.at(",") {
+                self.bump();
+                continue;
+            }
+            let before = self.pos;
+            params.push(self.parse_param());
+            if self.pos == before {
+                self.bump();
+            }
+        }
+        self.expect(")", "')'");
+        let return_type = if self.at("as") {
+            self.bump();
+            Some(self.parse_type())
+        } else {
+            None
+        };
+        if self.at(";") {
+            self.bump();
+        }
+        FunctionDecl {
+            span: self.span_since(start),
+            annotations: Vec::new(),
+            visibility: None,
+            name,
+            params,
+            return_type,
+            body: Block {
+                span: Span::new(start, start),
+                stmts: Vec::new(),
+            },
         }
     }
 
@@ -1026,11 +1430,17 @@ impl Parser {
             let cstart = self.cur().start as u32;
             self.bump(); // catch
             let mut param = None;
+            let mut exception_type = None;
             if self.at("(") {
                 self.bump();
                 if self.cur().kind == TokenKind::Ident {
                     param = Some(Ident::new(self.cur_span(), self.cur().text.clone()));
                     self.bump();
+                    // `catch (e instanceof MyException)`
+                    if self.at("instanceof") {
+                        self.bump();
+                        exception_type = Some(self.parse_type());
+                    }
                 }
                 self.expect(")", "')'");
             }
@@ -1038,6 +1448,7 @@ impl Parser {
             catches.push(CatchClause {
                 span: self.span_since(cstart),
                 param,
+                exception_type,
                 body: cbody,
             });
         }
@@ -1119,8 +1530,8 @@ impl Parser {
     /// Binding power for a binary operator at the current position.
     fn binop_bp(&self) -> Option<(BinOp, u8)> {
         let (op, lbp) = match self.cur().text.as_str() {
-            "||" => (BinOp::OrOr, 5),
-            "&&" => (BinOp::AndAnd, 7),
+            "||" | "or" => (BinOp::OrOr, 5),
+            "&&" | "and" => (BinOp::AndAnd, 7),
             "|" => (BinOp::BitOr, 9),
             "^" => (BinOp::BitXor, 11),
             "&" => (BinOp::BitAnd, 13),
@@ -1132,6 +1543,7 @@ impl Parser {
             ">=" => (BinOp::Ge, 17),
             "instanceof" => (BinOp::InstanceOf, 17),
             "in" => (BinOp::In, 17),
+            "has" => (BinOp::Has, 17),
             "<<" => (BinOp::Shl, 19),
             ">>" => (BinOp::Shr, 19),
             ">>>" => (BinOp::Ushr, 19),
@@ -1234,9 +1646,9 @@ impl Parser {
     fn parse_prefix(&mut self) -> Expr {
         let start = self.cur().start as u32;
         match self.cur().text.as_str() {
-            "!" | "-" | "+" | "~" | "++" | "--" => {
+            "!" | "-" | "+" | "~" | "++" | "--" | "not" => {
                 let op = match self.cur().text.as_str() {
-                    "!" => UnOp::Not,
+                    "!" | "not" => UnOp::Not,
                     "-" => UnOp::Neg,
                     "+" => UnOp::Pos,
                     "~" => UnOp::BitNot,
@@ -1254,26 +1666,62 @@ impl Parser {
             }
             "new" => {
                 self.bump(); // new
+                             // Inside `new X(...)`, `X(...)` is a constructor call, not
+                             // a `Method(...)` type — disable method-type parsing here.
+                let saved = self.method_type_ok;
+                self.method_type_ok = false;
                 let type_ = self.parse_type();
+                self.method_type_ok = saved;
                 let args = if self.at("(") {
                     self.parse_args()
                 } else {
                     Vec::new()
                 };
-                Expr::New {
+                // Postfix covers `new Foo[4]` array sizing and member
+                // access on the constructed value.
+                self.parse_postfix(Expr::New {
                     span: self.span_since(start),
                     type_,
                     args,
+                })
+            }
+            ":" => {
+                // Symbol literal `:name` (e.g. `method(:onPosition)`,
+                // `Toybox has :Sensor`, dict keys).
+                let colon_span = self.cur_span();
+                self.bump(); // :
+                if self.cur().kind == TokenKind::Ident {
+                    let name = self.cur().text.clone();
+                    let span = Span::new(colon_span.start, self.cur().end as u32);
+                    self.bump();
+                    self.parse_postfix(Expr::Literal(Literal::Symbol { span, text: name }))
+                } else {
+                    let span = self.cur_span();
+                    self.error(
+                        span,
+                        format!(
+                            "expected symbol name after ':', found {}",
+                            self.describe_cur()
+                        ),
+                    );
+                    Expr::Missing { span: colon_span }
                 }
+            }
+            "$" => {
+                // Module root `$.Module.Class` — treat `$` as a path root
+                // so postfix member access builds `$.Foo.Bar` paths.
+                let span = self.bump_span();
+                let root = Ident::new(span, "$");
+                self.parse_postfix(Expr::Ident(root))
             }
             "(" => {
                 self.bump(); // (
                 let e = self.parse_expr();
                 self.expect(")", "')'");
-                Expr::Paren {
+                self.parse_postfix(Expr::Paren {
                     span: self.span_since(start),
                     expr: Box::new(e),
-                }
+                })
             }
             "[" => {
                 self.bump(); // [
@@ -1291,10 +1739,19 @@ impl Parser {
                     }
                 }
                 self.expect("]", "']'");
-                Expr::Array {
+                // Byte-array suffix `[1, 2]b` — `b` must be an identifier
+                // glued to the `]` (no intervening space).
+                let byte_array = self.cur().kind == TokenKind::Ident
+                    && self.cur().text == "b"
+                    && !self.cur().space_before;
+                if byte_array {
+                    self.bump();
+                }
+                self.parse_postfix(Expr::Array {
                     span: self.span_since(start),
                     elems,
-                }
+                    byte_array,
+                })
             }
             "{" => {
                 // Dictionary literal `{key: value, ...}` in expression position.
@@ -1327,10 +1784,10 @@ impl Parser {
                     }
                 }
                 self.expect("}", "'}'");
-                Expr::Dict {
+                self.parse_postfix(Expr::Dict {
                     span: self.span_since(start),
                     entries,
-                }
+                })
             }
             "true" | "false" => {
                 let is_true = self.at("true");
@@ -1524,6 +1981,8 @@ enum ItemKind {
     Enum,
     Function,
     Var,
+    Module,
+    Typedef,
     Memberish,
 }
 

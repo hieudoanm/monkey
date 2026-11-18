@@ -11,5 +11,6 @@ monkey-core = { path = "../monkey-core" }
 monkey-formatter = { path = "../monkey-formatter" }
 monkey-linter = { path = "../monkey-linter" }
 monkey-parser = { path = "../monkey-parser" }
+monkey-sdk = { path = "../monkey-sdk" }
 monkey-syntax = { path = "../monkey-syntax" }
 serde_json = "=1.0.154"

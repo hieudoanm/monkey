@@ -15,7 +15,7 @@ Language support and tooling for Garmin Connect IQ Monkey C and Jungle:
   Linux (x86_64), macOS (Apple Silicon), and Windows (x86_64) are attached
   below.
 - `extension-monkey-c.vsix` — VS Code extension with syntax highlighting,
-  document formatting, inline lint diagnostics (via `monkey lint --stdin`),
+  document formatting, inline lint diagnostics (persistent `monkey lint --serve` process),
   a dark theme, file icons, and a runtime-preview command.
 - `extension-monkey-c-zed.zip` — Zed extension source (Tree-sitter languages,
   formatter, lint/check tasks, theme, icon theme). Install via `zed: install`

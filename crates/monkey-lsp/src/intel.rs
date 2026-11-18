@@ -66,6 +66,43 @@ fn type_ref_text(t: &TypeRef) -> String {
             .map(type_ref_text)
             .collect::<Vec<_>>()
             .join(" or "),
+        TypeRef::Generic { path, args, .. } => {
+            let s: Vec<&str> = path.iter().map(|i| i.text.as_str()).collect();
+            format!(
+                "{}<{}>",
+                s.join("."),
+                args.iter()
+                    .map(type_ref_text)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        }
+        TypeRef::Dict { entries, .. } => format!(
+            "{{ {} }}",
+            entries
+                .iter()
+                .map(|e| format!(":{} as {}", e.name.text, type_ref_text(&e.type_)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        TypeRef::Method {
+            path, params, ret, ..
+        } => {
+            let s: Vec<&str> = path.iter().map(|i| i.text.as_str()).collect();
+            let mut out = format!(
+                "{}({})",
+                s.join("."),
+                params
+                    .iter()
+                    .map(type_ref_text)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            if let Some(r) = ret {
+                out.push_str(&format!(" as {}", type_ref_text(r)));
+            }
+            out
+        }
     }
 }
 
@@ -148,7 +185,14 @@ impl Visitor for Collector {
         };
         let n = self.decls.len();
         self.push(&f.name, "field", detail);
-        self.decls[n].type_name = f.type_ann.as_ref().and_then(type_name_of);
+        self.decls[n].type_name =
+            f.type_ann
+                .as_ref()
+                .and_then(type_name_of)
+                .or_else(|| match &f.init {
+                    Some(Expr::New { type_, .. }) => type_name_of(type_),
+                    _ => None,
+                });
         for a in &f.annotations {
             self.visit_annotation(a);
         }
@@ -356,6 +400,30 @@ fn symbols_for_items(items: &[Item]) -> Vec<Sym> {
                             name_span: f.name.span,
                             children: vec![],
                         }),
+                        ClassMember::Enum(d) => children.push(Sym {
+                            name: d.name.text.clone(),
+                            detail: format!("enum {}", d.name.text),
+                            kind: KIND_ENUM,
+                            span: d.span,
+                            name_span: d.name.span,
+                            children: vec![],
+                        }),
+                        ClassMember::Class(c) => children.push(Sym {
+                            name: c.name.text.clone(),
+                            detail: format!("class {}", c.name.text),
+                            kind: KIND_CLASS,
+                            span: c.span,
+                            name_span: c.name.span,
+                            children: vec![],
+                        }),
+                        ClassMember::Typedef(t) => children.push(Sym {
+                            name: t.name.text.clone(),
+                            detail: format!("typedef {}", t.name.text),
+                            kind: KIND_CLASS,
+                            span: t.span,
+                            name_span: t.name.span,
+                            children: vec![],
+                        }),
                         ClassMember::Error { .. } => {}
                     }
                 }
@@ -406,6 +474,7 @@ fn symbols_for_items(items: &[Item]) -> Vec<Sym> {
                 name_span: v.name.span,
                 children: vec![],
             }),
+            Item::Module(d) => out.extend(symbols_for_items(&d.members)),
             _ => {}
         }
     }
@@ -413,13 +482,30 @@ fn symbols_for_items(items: &[Item]) -> Vec<Sym> {
 }
 
 /// `textDocument/hover` — markdown info for the declaration under `offset`.
+/// Falls back to resolving the identifier *use* at `offset` to a decl.
 pub fn hover(src: &str, offset: usize) -> Option<Value> {
     let decls = collect_decls(src);
     // Innermost match: smallest name span containing the offset.
-    let decl = decls
+    if let Some(decl) = decls
         .iter()
         .filter(|d| span_contains(d.name_span, offset))
+        .min_by_key(|d| d.name_span.len())
+    {
+        return Some(decl_hover(decl, decl.name_span, src, None));
+    }
+    // Usage position: resolve the identifier to a declaration by name.
+    let (s, e) = ident_at(src, offset)?;
+    let name = &src[s..e];
+    let decl = decls
+        .iter()
+        .filter(|d| d.name == name)
         .min_by_key(|d| d.name_span.len())?;
+    Some(decl_hover(decl, Span::new(s as u32, e as u32), src, None))
+}
+
+/// Hover JSON for an arbitrary declaration at `span` (usually a usage).
+/// `extra` appends a suffix like ` — declared in `b.mc``.
+pub fn decl_hover(decl: &Decl, span: Span, src: &str, extra: Option<&str>) -> Value {
     let kind_label = match decl.kind {
         "class" => "class",
         "enum" => "enum",
@@ -437,10 +523,13 @@ pub fn hover(src: &str, offset: usize) -> Option<Value> {
     if let Some(p) = &decl.parent {
         text.push_str(&format!(" — member of `{}`", p));
     }
-    Some(json!({
+    if let Some(x) = extra {
+        text.push_str(x);
+    }
+    json!({
         "contents": {"kind": "markdown", "value": text},
-        "range": range_json(src, decl.name_span),
-    }))
+        "range": range_json(src, span),
+    })
 }
 
 /// `textDocument/completion` — keywords + declared names in the file.
@@ -479,15 +568,43 @@ pub fn completion(src: &str) -> Value {
 // ---------- references ----------
 
 /// Collects every identifier *use* (not declaration) matching `name`.
+///
+/// `member` mode is for methods/fields/enum-members: `.name` member accesses
+/// and path segments (`Enum.MEMBER`) count as uses, while bare identifiers
+/// only count inside the declaring class body (self-calls like `draw()`).
 struct UseCollector {
     name: String,
+    member: bool,
+    /// Span of the declaring class body; bare-ident uses outside it are
+    /// ignored in member mode.
+    class_span: Option<Span>,
     uses: Vec<Span>,
 }
 
 impl Visitor for UseCollector {
     fn visit_expr(&mut self, e: &Expr) {
         match e {
-            Expr::Ident(i) if i.text == self.name => self.uses.push(i.span),
+            Expr::Ident(i) if i.text == self.name => {
+                let inside = match (self.member, self.class_span) {
+                    (true, Some(cs)) => span_contains(cs, i.span.start as usize),
+                    (true, None) => true,
+                    (false, _) => true,
+                };
+                if inside {
+                    self.uses.push(i.span);
+                }
+            }
+            Expr::Path { segments, .. } => {
+                // `Foo.bar` / `Enum.MEMBER` — any segment may be the use.
+                for seg in segments {
+                    if seg.text == self.name {
+                        self.uses.push(seg.span);
+                    }
+                }
+            }
+            Expr::Member { name, .. } if self.member && name.text == self.name => {
+                self.uses.push(name.span);
+            }
             _ => {}
         }
         // Default recursion into children.
@@ -572,6 +689,36 @@ impl Visitor for UseCollector {
                     self.visit_type(v);
                 }
             }
+            TypeRef::Generic { path, args, .. } => {
+                if let Some(last) = path.last() {
+                    if last.text == self.name {
+                        self.uses.push(last.span);
+                    }
+                }
+                for a in args {
+                    self.visit_type(a);
+                }
+            }
+            TypeRef::Dict { entries, .. } => {
+                for e in entries {
+                    self.visit_type(&e.type_);
+                }
+            }
+            TypeRef::Method {
+                path, params, ret, ..
+            } => {
+                if let Some(last) = path.last() {
+                    if last.text == self.name {
+                        self.uses.push(last.span);
+                    }
+                }
+                for p in params {
+                    self.visit_type(p);
+                }
+                if let Some(r) = ret {
+                    self.visit_type(r);
+                }
+            }
         }
     }
 }
@@ -594,11 +741,24 @@ pub fn formatting(src: &str, is_jungle: bool) -> Value {
     }])
 }
 
-/// All identifier *uses* of `name` in `src` (spans only).
-pub fn uses_in(src: &str, name: &str) -> Vec<Span> {
+/// Span of the class declaration named `name` in `src`, if any.
+pub fn class_span(src: &str, name: &str) -> Option<Span> {
+    let parsed = monkey_parser::parse(src);
+    parsed.file.items.iter().find_map(|i| match i {
+        Item::Class(c) if c.name.text == name => Some(c.span),
+        _ => None,
+    })
+}
+
+/// Uses of `name` with member-awareness: when `member` is set, `.name`
+/// accesses and path segments count, and bare identifiers are restricted to
+/// `class_span` (the declaring class body) when provided.
+pub fn uses_in_mode(src: &str, name: &str, member: bool, class_span: Option<Span>) -> Vec<Span> {
     let parsed = monkey_parser::parse(src);
     let mut c = UseCollector {
         name: name.to_string(),
+        member,
+        class_span,
         uses: Vec::new(),
     };
     c.visit_source_file(&parsed.file);
@@ -630,6 +790,9 @@ pub fn class_members(src: &str, class_name: &str) -> Vec<(String, &'static str)>
                     .filter_map(|m| match m {
                         ClassMember::Field(f) => Some((f.name.text.clone(), "field")),
                         ClassMember::Function(f) => Some((f.name.text.clone(), "method")),
+                        ClassMember::Enum(_) | ClassMember::Class(_) | ClassMember::Typedef(_) => {
+                            None
+                        }
                         _ => None,
                     })
                     .collect();

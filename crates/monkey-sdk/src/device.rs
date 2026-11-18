@@ -19,6 +19,11 @@ pub struct Device {
     pub family: Option<String>,
     /// `[width, height]` resolution from `compiler.json`, if present.
     pub resolution: Option<(u32, u32)>,
+    /// App types the device supports (`appTypes[].type` in compiler.json,
+    /// e.g. `watchFace`, `datafield`, `widget`).
+    pub app_types: Vec<String>,
+    /// API level from `deviceGroup` (e.g. `API level 3.4` → `3.4`).
+    pub api_level: Option<String>,
     /// Root directory of the device data.
     pub dir: PathBuf,
 }
@@ -32,6 +37,22 @@ fn read_compiler_json(dir: &Path, id: &str) -> Option<Device> {
         let h = r.get("height").and_then(Value::as_u64)? as u32;
         Some((w, h))
     });
+    let app_types = v
+        .get("appTypes")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|t| t.get("type").and_then(Value::as_str))
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+    // `deviceGroup` looks like `API level 3.4` — extract the version.
+    let api_level = v
+        .get("deviceGroup")
+        .and_then(Value::as_str)
+        .and_then(|g| g.rsplit(' ').next())
+        .map(str::to_string);
     Some(Device {
         id: v
             .get("deviceId")
@@ -47,6 +68,8 @@ fn read_compiler_json(dir: &Path, id: &str) -> Option<Device> {
             .and_then(Value::as_str)
             .map(str::to_string),
         resolution,
+        app_types,
+        api_level,
         dir: dir.to_path_buf(),
     })
 }

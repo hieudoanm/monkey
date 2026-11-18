@@ -22,7 +22,7 @@ const MULTI_PUNCT: &[&str] = &[
 /// Single-character punctuation.
 const PUNCT: &[char] = &[
     '(', ')', '{', '}', '[', ']', '<', '>', ',', ';', '.', ':', '+', '-', '*', '/', '%', '=', '!',
-    '&', '|', '^', '~', '?', '@',
+    '&', '|', '^', '~', '?', '@', '$',
 ];
 
 /// Tokens plus lexical diagnostics.
@@ -279,6 +279,18 @@ impl<'a> Lexer<'a> {
                     self.col = save.2;
                 }
             }
+        }
+        // Numeric suffixes: float `1.0f`/`1.0d`, long `123L` / `0xFFL`.
+        // (For hex, `f`/`F` were already consumed as digits; only `L`/`l`
+        // can remain. For decimals all four are possible.)
+        if matches!(
+            self.peek(),
+            Some('f') | Some('F') | Some('l') | Some('L') | Some('d') | Some('D')
+        ) && !self
+            .peek_at(1)
+            .is_some_and(|ch| ch.is_alphanumeric() || ch == '_')
+        {
+            self.bump_char();
         }
         self.emit(start, TokenKind::Number, l, c);
     }

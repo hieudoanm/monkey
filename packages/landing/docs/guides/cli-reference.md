@@ -32,12 +32,18 @@ monkey format [--check|--write] [--stdin] [--indent-spaces N|--indent-tabs] [pat
 ```bash
 monkey lint [paths...]
 monkey lint --stdin [label]   # source from stdin → JSON on stdout
+monkey lint --serve           # persistent lint server (editor integrations)
 ```
 
 `--stdin` reads source from stdin and always emits a JSON diagnostics array
 (SARIF with `--sarif`) — used by editor integrations to lint unsaved buffers.
 The optional `label` (e.g. `App.mc`, `file.jungle`) selects the language;
 anything not ending in `.jungle` is treated as Monkey C.
+
+`--serve` keeps the process alive and answers repeated requests so editors
+lint without spawning per keystroke. Frame protocol: send
+`<label>\n<byte-length>\n<source bytes>`; receive one line containing the
+same JSON diagnostics array. EOF on stdin exits cleanly.
 
 Runs text rules, lexical/syntax diagnostics, and AST-backed lint rules.
 Diagnostics print as `path:line:col: severity: message [code]` and the exit
@@ -142,10 +148,17 @@ Reads device profiles from the Connect IQ `Devices/` directory.
 
 ```bash
 monkey project info [path]
+monkey project check [--sdk <path>] [path]
 ```
 
-Shows the discovered project's root, jungle/manifest paths, app type,
-`minApiLevel`, entry point, and jungle properties.
+`info` shows the discovered project's root, jungle/manifest paths, app
+type, `minApiLevel`, entry point, and jungle properties.
+
+`check` validates `manifest.xml` against the discovered Connect IQ SDK:
+product IDs against `Devices/` profiles, `minApiLevel` against each
+device's API level, and app `type` against supported app types. Reports
+warnings for unknown products and errors for incompatible targets;
+exits 1 on findings.
 
 ## new
 
@@ -164,13 +177,20 @@ contains `monkey.jungle` or `manifest.xml`.
 ## test
 
 ```bash
-monkey test [--device <id>] [--sdk <path>] [--key <path>] [path]
+monkey test [--device <id>] [--sdk <path>] [--key <path>]
+            [--run] [--test <name>] [--no-simulator] [path]
 ```
 
-Project verification gate: runs `monkey check` (lint + format drift) over
-the project's files, then a full `monkey build`. Exits non-zero on any
-finding or build failure — intended for CI and pre-commit. Runtime
-`Toybox.Test` execution inside the simulator is not yet supported.
+Default: project verification gate — runs `monkey check` (lint + format
+drift) then `monkey build`. Exits non-zero on any finding or build
+failure; intended for CI and pre-commit.
+
+With `--run`: compiles with `monkeyc -t` (unit-test mode), launches the
+simulator, and executes `Toybox.Test` tests via `monkeydo -t`. `--test
+<name>` runs a single `(:test)`-annotated method; `--no-simulator` assumes
+a simulator is already running (physical devices). Note `monkeydo -t`
+exits non-zero even when tests pass — Monkey parses the RESULTS summary
+instead.
 
 ## build
 
@@ -241,13 +261,14 @@ Runs a language server over stdio (LSP, full document sync). Capabilities:
   methods, fields, enums, and functions.
 - **`textDocument/hover`** — markdown signature/kind for the declaration
   under the cursor (params and enum members included).
-- **`textDocument/definition`** — same-file jump to a declaration.
+- **`textDocument/definition`** — jump to a declaration, across files.
 - **`textDocument/completion`** — Monkey C keywords plus all declared
-  names in the document.
-- **`textDocument/references`** — same-file find-references for the symbol
-  under the cursor.
-- **`textDocument/formatting`** — full-document formatting via
-  `monkey-formatter` (returns no edit when already formatted).
+  names in the document and project.
+- **`textDocument/references`** — find-references across the project,
+  member-aware for `X.name` uses.
+- **`textDocument/formatting`** and **`textDocument/rangeFormatting`** —
+  formatting via `monkey-formatter` (returns no edit when already
+  formatted; range requests get the whole-document edit).
 - **`textDocument/rename`** — rename returning a `WorkspaceEdit` covering
   the declaration and all uses **across the project**; rejects invalid
   identifiers.
@@ -255,8 +276,9 @@ Runs a language server over stdio (LSP, full document sync). Capabilities:
   parentheses.
 - **`textDocument/prepareRename`** — validates rename targets up front.
 - **Context-aware completion** — `X.` completes members of `X`'s declared or inferred
-  (`new X()`) type (or the enclosing class for `this.`); plain positions offer keywords
-  plus declarations from the whole project.
+  (`new X()`) type (or the enclosing class for `this.`); `Toybox.`/`Toybox.Module.`/bare
+  module paths complete from the SDK's `api.debug.xml` member database; plain positions
+  offer keywords plus declarations from the whole project.
 
 Definition, references, and rename resolve across all `*.mc` files in the
 workspace (indexed from `workspaceFolders`/`rootUri`, or the opened file's

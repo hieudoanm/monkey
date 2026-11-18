@@ -43,9 +43,49 @@ pub enum TypeRef {
         nullable: bool,
     },
     /// `[T]` or `[T, U, ...]` array/tuple type.
-    Array { span: Span, elems: Vec<TypeRef> },
+    Array {
+        span: Span,
+        elems: Vec<TypeRef>,
+        /// Whether the type is nullable (`[T]?`).
+        nullable: bool,
+    },
     /// `A or B or ...` union type.
     Union { span: Span, variants: Vec<TypeRef> },
+    /// `Foo<Bar, Baz>` generic type (e.g. `Array<Number>`).
+    Generic {
+        span: Span,
+        /// Dotted path of the generic type, e.g. `["Array"]`.
+        path: Vec<Ident>,
+        args: Vec<TypeRef>,
+        /// Whether the type is nullable (`Array<T>?`).
+        nullable: bool,
+    },
+    /// `Method(A, B) as R` callable/method type.
+    Method {
+        span: Span,
+        /// Dotted path of the method type (usually `["Method"]`).
+        path: Vec<Ident>,
+        params: Vec<TypeRef>,
+        /// Return type after `as`, if present.
+        ret: Option<Box<TypeRef>>,
+        /// Whether the type is nullable.
+        nullable: bool,
+    },
+    /// `{ :key as Type, ... }` dictionary type literal.
+    Dict {
+        span: Span,
+        entries: Vec<DictTypeEntry>,
+        /// Whether the type is nullable.
+        nullable: bool,
+    },
+}
+
+/// One entry in a dictionary type literal: `:name as Type`.
+#[derive(Clone, Debug)]
+pub struct DictTypeEntry {
+    pub span: Span,
+    pub name: Ident,
+    pub type_: TypeRef,
 }
 
 impl TypeRef {
@@ -54,7 +94,27 @@ impl TypeRef {
         match self {
             TypeRef::Path { span, .. }
             | TypeRef::Array { span, .. }
-            | TypeRef::Union { span, .. } => *span,
+            | TypeRef::Union { span, .. }
+            | TypeRef::Generic { span, .. }
+            | TypeRef::Method { span, .. }
+            | TypeRef::Dict { span, .. } => *span,
+        }
+    }
+
+    /// Mark the type nullable (`?` suffix). For unions the marker is
+    /// applied to the last variant.
+    pub fn set_nullable(&mut self) {
+        match self {
+            TypeRef::Path { nullable, .. }
+            | TypeRef::Array { nullable, .. }
+            | TypeRef::Generic { nullable, .. }
+            | TypeRef::Method { nullable, .. }
+            | TypeRef::Dict { nullable, .. } => *nullable = true,
+            TypeRef::Union { variants, .. } => {
+                if let Some(last) = variants.last_mut() {
+                    last.set_nullable();
+                }
+            }
         }
     }
 }
@@ -88,6 +148,10 @@ pub enum Item {
     Function(FunctionDecl),
     /// `var`/`const` at top level — parsed for recovery.
     VarDecl(VarDecl),
+    /// `module Name { ... }` namespace/module declaration.
+    Module(ModuleDecl),
+    /// `typedef Name as Type | interface { ... } | { dict-type }`.
+    Typedef(TypedefDecl),
     /// An item the parser could not understand; kept for tooling.
     Error {
         span: Span,
@@ -111,6 +175,38 @@ pub struct ImportDecl {
     pub path: Vec<Ident>,
 }
 
+/// A `module Name { ... }` declaration. Members are regular items
+/// (`var`/`const`/`function`, possibly `hidden`).
+#[derive(Clone, Debug)]
+pub struct ModuleDecl {
+    pub span: Span,
+    pub annotations: Vec<Annotation>,
+    pub name: Ident,
+    pub members: Vec<Item>,
+}
+
+/// A `typedef` declaration.
+#[derive(Clone, Debug)]
+pub struct TypedefDecl {
+    pub span: Span,
+    pub annotations: Vec<Annotation>,
+    pub name: Ident,
+    pub target: TypedefTarget,
+}
+
+/// What a `typedef` aliases.
+#[derive(Clone, Debug)]
+pub enum TypedefTarget {
+    /// `typedef X as SomeType;` — any type expression.
+    Type(TypeRef),
+    /// `typedef X as interface { function sig(...); ... };`
+    Interface {
+        span: Span,
+        /// Signature-only function declarations (empty bodies).
+        members: Vec<FunctionDecl>,
+    },
+}
+
 #[derive(Clone, Debug)]
 pub struct ClassDecl {
     pub span: Span,
@@ -125,7 +221,15 @@ pub struct ClassDecl {
 pub enum ClassMember {
     Field(FieldDecl),
     Function(FunctionDecl),
-    Error { span: Span },
+    /// Nested `enum` declaration inside a class.
+    Enum(EnumDecl),
+    /// Nested `class` declaration inside a class.
+    Class(Box<ClassDecl>),
+    /// `typedef` inside a class body.
+    Typedef(TypedefDecl),
+    Error {
+        span: Span,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -281,6 +385,8 @@ pub struct CatchClause {
     pub span: Span,
     /// Exception variable name, if declared (`catch (e)`).
     pub param: Option<Ident>,
+    /// `catch (e instanceof MyException)` type filter, if present.
+    pub exception_type: Option<TypeRef>,
     pub body: Block,
 }
 
@@ -381,10 +487,12 @@ pub enum Expr {
         expr: Box<Expr>,
         type_: TypeRef,
     },
-    /// `[a, b, c]`.
+    /// `[a, b, c]` or byte array `[a, b]b`.
     Array {
         span: Span,
         elems: Vec<Expr>,
+        /// `true` for the `b` suffix (`[0x01, 0x00]b`).
+        byte_array: bool,
     },
     /// `{"k": v, ...}` — permissive; Monkey C dictionary literals.
     Dict {
@@ -419,6 +527,11 @@ pub enum Literal {
     },
     Null {
         span: Span,
+    },
+    /// `:name` symbol literal (used by `method()`, `has`, dict keys).
+    Symbol {
+        span: Span,
+        text: String,
     },
 }
 
@@ -461,6 +574,7 @@ pub enum BinOp {
     Ushr,
     InstanceOf,
     In,
+    Has,
 }
 
 impl BinOp {
@@ -487,6 +601,7 @@ impl BinOp {
             BinOp::Ushr => ">>>",
             BinOp::InstanceOf => "instanceof",
             BinOp::In => "in",
+            BinOp::Has => "has",
         }
     }
 }
@@ -553,7 +668,8 @@ impl Expr {
                 | Literal::Str { span, .. }
                 | Literal::Char { span, .. }
                 | Literal::Bool { span, .. }
-                | Literal::Null { span } => *span,
+                | Literal::Null { span }
+                | Literal::Symbol { span, .. } => *span,
             },
         }
     }
@@ -590,6 +706,8 @@ impl Item {
             Item::Enum(d) => d.span,
             Item::Function(d) => d.span,
             Item::VarDecl(d) => d.span,
+            Item::Module(d) => d.span,
+            Item::Typedef(d) => d.span,
             Item::Error { span } => *span,
         }
     }

@@ -38,10 +38,81 @@ export function toDiagnostics(findings: MonkeyFinding[], src: string): vscode.Di
   });
 }
 
+/**
+ * Persistent `monkey lint --serve` process. Speaks the CLI's frame protocol:
+ * `<label>\n<byteLen>\n<source>` in, one JSON diagnostics array line out.
+ * Falls back to per-request `lint --stdin` spawns when unavailable.
+ */
+class LintServer {
+  private child: ChildProcess | null = null;
+  private buf = '';
+  private queue: Array<(line: string | null) => void> = [];
+  private dead = false;
+
+  constructor(private readonly cliPath: string) {}
+
+  private start(): boolean {
+    if (this.child && !this.dead) return true;
+    try {
+      const child = spawn(this.cliPath, ['lint', '--serve'], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      this.child = child;
+      this.dead = false;
+      this.buf = '';
+      this.queue = [];
+      child.stdout?.on('data', (d: Buffer) => this.onData(d.toString()));
+      child.on('error', () => this.failAll());
+      child.on('close', () => {
+        this.child = null;
+        this.failAll();
+      });
+      child.stderr?.on('data', () => {});
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private onData(chunk: string): void {
+    this.buf += chunk;
+    let idx: number;
+    while ((idx = this.buf.indexOf('\n')) >= 0) {
+      const line = this.buf.slice(0, idx);
+      this.buf = this.buf.slice(idx + 1);
+      const resolve = this.queue.shift();
+      resolve?.(line);
+    }
+  }
+
+  private failAll(): void {
+    this.dead = true;
+    for (const r of this.queue.splice(0)) r(null);
+  }
+
+  /** Lint `src` labelled `label`; resolves to the raw JSON line or null. */
+  request(label: string, src: string): Promise<string | null> {
+    if (!this.start() || !this.child?.stdin) return Promise.resolve(null);
+    const child = this.child;
+    return new Promise((resolve) => {
+      this.queue.push(resolve);
+      child.stdin!.write(`${label}\n${Buffer.byteLength(src, 'utf8')}\n${src}`);
+    });
+  }
+
+  dispose(): void {
+    this.failAll();
+    this.child?.kill();
+    this.child = null;
+  }
+}
+
 export class MonkeyLintProvider implements vscode.Disposable {
   private readonly collection = vscode.languages.createDiagnosticCollection(COLLECTION);
   private readonly timers = new Map<string, NodeJS.Timeout>();
   private readonly running = new Map<string, ChildProcess>();
+  private server: LintServer | null = null;
+  private serverPath = '';
   private readonly subscriptions: vscode.Disposable[] = [];
 
   constructor() {
@@ -60,6 +131,7 @@ export class MonkeyLintProvider implements vscode.Disposable {
   dispose(): void {
     for (const t of this.timers.values()) clearTimeout(t);
     for (const p of this.running.values()) p.kill();
+    this.server?.dispose();
     this.collection.dispose();
     for (const s of this.subscriptions) s.dispose();
   }
@@ -70,6 +142,16 @@ export class MonkeyLintProvider implements vscode.Disposable {
 
   private cliPath(): string {
     return vscode.workspace.getConfiguration('monkeyC').get<string>('cliPath', 'monkey');
+  }
+
+  /** Persistent lint server for the current cliPath (restarted on change). */
+  private lintServer(): LintServer | null {
+    const p = this.cliPath();
+    if (this.server && this.serverPath === p) return this.server;
+    this.server?.dispose();
+    this.server = new LintServer(p);
+    this.serverPath = p;
+    return this.server;
   }
 
   private isLintable(doc: vscode.TextDocument): boolean {
@@ -115,7 +197,6 @@ export class MonkeyLintProvider implements vscode.Disposable {
       return;
     }
     const key = doc.uri.toString();
-    this.running.get(key)?.kill();
     const src = doc.getText();
     // Label determines language detection in the CLI; unsaved buffers get a
     // synthetic extension matching the document language.
@@ -124,6 +205,30 @@ export class MonkeyLintProvider implements vscode.Disposable {
       : doc.fileName;
     const version = doc.version;
 
+    // Preferred path: persistent `lint --serve` process (one spawn total).
+    const server = this.lintServer();
+    if (server) {
+      void server.request(label, src).then((line) => {
+        if (line === null) {
+          this.spawnLint(doc, key, label, src, version);
+          return;
+        }
+        this.applyResult(doc, key, src, version, line, '');
+      });
+      return;
+    }
+    this.spawnLint(doc, key, label, src, version);
+  }
+
+  /** Fallback: one-shot `monkey lint --stdin` spawn per request. */
+  private spawnLint(
+    doc: vscode.TextDocument,
+    key: string,
+    label: string,
+    src: string,
+    version: number,
+  ): void {
+    this.running.get(key)?.kill();
     let child: ChildProcess;
     try {
       child = spawn(this.cliPath(), ['lint', '--stdin', label], {
@@ -150,25 +255,37 @@ export class MonkeyLintProvider implements vscode.Disposable {
     });
     child.on('close', () => {
       this.running.delete(key);
-      // Ignore results for stale document versions; a new run is scheduled.
-      const current = vscode.workspace.textDocuments.find((d) => d.uri.toString() === key);
-      if (!current || current.version !== version) return;
-      const findings = parseFindings(out);
-      if (findings.length === 0 && err.trim() !== '' && !out.trim().startsWith('[')) {
-        // CLI missing or crashed — show a hint once.
-        const d = new vscode.Diagnostic(
-          new vscode.Range(0, 0, 0, 1),
-          `monkey lint unavailable: ${err.trim().split('\n')[0]}`,
-          vscode.DiagnosticSeverity.Warning,
-        );
-        d.source = 'monkey';
-        this.collection.set(doc.uri, [d]);
-        return;
-      }
-      this.collection.set(doc.uri, toDiagnostics(findings, src));
+      this.applyResult(doc, key, src, version, out, err);
     });
     child.stdin?.on('error', () => {});
     child.stdin?.write(src);
     child.stdin?.end();
+  }
+
+  /** Convert a lint JSON response into diagnostics for `doc`. */
+  private applyResult(
+    doc: vscode.TextDocument,
+    key: string,
+    src: string,
+    version: number,
+    out: string,
+    err: string,
+  ): void {
+    // Ignore results for stale document versions; a new run is scheduled.
+    const current = vscode.workspace.textDocuments.find((d) => d.uri.toString() === key);
+    if (!current || current.version !== version) return;
+    const findings = parseFindings(out);
+    if (findings.length === 0 && err.trim() !== '' && !out.trim().startsWith('[')) {
+      // CLI missing or crashed — show a hint once.
+      const d = new vscode.Diagnostic(
+        new vscode.Range(0, 0, 0, 1),
+        `monkey lint unavailable: ${err.trim().split('\n')[0]}`,
+        vscode.DiagnosticSeverity.Warning,
+      );
+      d.source = 'monkey';
+      this.collection.set(doc.uri, [d]);
+      return;
+    }
+    this.collection.set(doc.uri, toDiagnostics(findings, src));
   }
 }
