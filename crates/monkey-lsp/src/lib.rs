@@ -67,7 +67,9 @@ impl Server {
                             "documentSymbolProvider": true,
                             "hoverProvider": true,
                             "definitionProvider": true,
-                            "completionProvider": {"triggerCharacters": [".", " "]}
+                            "completionProvider": {"triggerCharacters": [".", " "]},
+                            "documentFormattingProvider": true,
+                            "referencesProvider": true
                         },
                         "serverInfo": {"name": "monkey", "version": env!("CARGO_PKG_VERSION")}
                     }
@@ -161,6 +163,14 @@ impl Server {
                 let result = self.completion_result(&params);
                 out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
             }
+            "textDocument/formatting" => {
+                let result = self.formatting_result(&params);
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
+            "textDocument/references" => {
+                let result = self.references_result(&params);
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
             _ if is_request => {
                 out.response = Some(json!({
                     "jsonrpc": "2.0",
@@ -226,6 +236,31 @@ impl Server {
             return json!({"isIncomplete": false, "items": []});
         }
         intel::completion(&src)
+    }
+
+    fn formatting_result(&self, params: &Value) -> Value {
+        let Some((_, lang, src)) = self.doc_text(params) else {
+            return Value::Null;
+        };
+        intel::formatting(&src, lang == "jungle")
+    }
+
+    fn references_result(&self, params: &Value) -> Value {
+        let Some((uri, lang, src)) = self.doc_text(params) else {
+            return json!([]);
+        };
+        if lang == "jungle" {
+            return json!([]);
+        }
+        let include_decl = params
+            .get("context")
+            .and_then(|c| c.get("includeDeclaration"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        match self.offset_param(params, &src) {
+            Some(off) => intel::references(&src, &uri, off, include_decl),
+            None => json!([]),
+        }
     }
 }
 

@@ -15,6 +15,9 @@ stdio. Part of the `monkey-*` toolchain workspace.
   failures — keep messages human-readable.
 - Only external dep is `serde_json` (protocol). Reuse `monkey-*` crates for
   all real work — no duplicated logic.
+- `build_project`/`run_project` re-invoke this same binary via
+  `std::env::current_exe()` (`monkey build`/`monkey run`) rather than
+  duplicating SDK orchestration — `run` has a 120s timeout, `build` 300s.
 
 ## Validation
 

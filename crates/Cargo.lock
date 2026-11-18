@@ -54,6 +54,7 @@ name = "monkey-lsp"
 version = "0.1.0"
 dependencies = [
  "monkey-core",
+ "monkey-formatter",
  "monkey-linter",
  "monkey-parser",
  "monkey-syntax",

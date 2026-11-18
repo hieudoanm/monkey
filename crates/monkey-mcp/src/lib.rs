@@ -89,6 +89,33 @@ fn tools() -> Value {
             "name": "device_list",
             "description": "List Connect IQ device profiles (id, display name, resolution) from the SDK Devices directory.",
             "inputSchema": {"type": "object", "properties": {}}
+        },
+        {
+            "name": "build_project",
+            "description": "Build a Connect IQ project PRG with the official monkeyc compiler (same as `monkey build`). Requires the Connect IQ SDK and a developer key.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Project directory or file inside it (default current directory)"},
+                    "device": {"type": "string", "description": "Target device id (default: first manifest product)"},
+                    "sdk": {"type": "string", "description": "Connect IQ SDK path (default: auto-detect)"},
+                    "key": {"type": "string", "description": "Developer key path (default: auto-detect)"}
+                }
+            }
+        },
+        {
+            "name": "run_project",
+            "description": "Build and run a Connect IQ project in the simulator (same as `monkey run`). Launches connectiq, waits for boot, then deploys with monkeydo. `no_simulator` skips the simulator for physical-device deploys.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Project directory or file inside it (default current directory)"},
+                    "device": {"type": "string", "description": "Target device id (default: first manifest product)"},
+                    "sdk": {"type": "string", "description": "Connect IQ SDK path (default: auto-detect)"},
+                    "key": {"type": "string", "description": "Developer key path (default: auto-detect)"},
+                    "no_simulator": {"type": "boolean", "description": "Skip launching the simulator"}
+                }
+            }
         }
     ])
 }
@@ -243,12 +270,101 @@ fn call_tool(name: &str, args: &Value) -> Value {
                 .collect();
             tool_result(json!(devices))
         }
+        "build_project" | "run_project" => {
+            let path = args.get("path").and_then(Value::as_str).unwrap_or(".");
+            let mut argv: Vec<String> = vec![
+                if name == "build_project" {
+                    "build"
+                } else {
+                    "run"
+                }
+                .to_string(),
+                path.to_string(),
+            ];
+            for (arg_key, flag) in [("device", "--device"), ("sdk", "--sdk"), ("key", "--key")] {
+                if let Some(v) = args.get(arg_key).and_then(Value::as_str) {
+                    argv.push(flag.to_string());
+                    argv.push(v.to_string());
+                }
+            }
+            if name == "run_project"
+                && args
+                    .get("no_simulator")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+            {
+                argv.push("--no-simulator".to_string());
+            }
+            tool_result(run_monkey_cli(&argv))
+        }
         other => tool_error(&format!("unknown tool: {}", other)),
     }
 }
 
 /// Handle one JSON-RPC message. Returns `Some(response)` for requests,
 /// `None` for notifications (and malformed input).
+/// Run the `monkey` binary (this same executable) with `argv`, capturing
+/// output. `run` can block while the app executes in the simulator, so it
+/// gets a shorter timeout and is killed if it exceeds it.
+fn run_monkey_cli(argv: &[String]) -> Value {
+    let exe = match std::env::current_exe() {
+        Ok(e) => e,
+        Err(e) => return json!({"error": format!("cannot locate monkey binary: {}", e)}),
+    };
+    let timeout = if argv.first().map(String::as_str) == Some("run") {
+        std::time::Duration::from_secs(120)
+    } else {
+        std::time::Duration::from_secs(300)
+    };
+    let mut child = match std::process::Command::new(exe)
+        .args(argv)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+    {
+        Ok(c) => c,
+        Err(e) => return json!({"error": format!("failed to spawn monkey: {}", e)}),
+    };
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let out = child
+                    .wait_with_output()
+                    .unwrap_or_else(|_| std::process::Output {
+                        status,
+                        stdout: Vec::new(),
+                        stderr: Vec::new(),
+                    });
+                return json!({
+                    "command": format!("monkey {}", argv.join(" ")),
+                    "exit_code": status.code(),
+                    "timed_out": false,
+                    "stdout": String::from_utf8_lossy(&out.stdout),
+                    "stderr": String::from_utf8_lossy(&out.stderr),
+                });
+            }
+            Ok(None) => {
+                if start.elapsed() > timeout {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return json!({
+                        "command": format!("monkey {}", argv.join(" ")),
+                        "exit_code": null,
+                        "timed_out": true,
+                        "stdout": "",
+                        "stderr": format!("timed out after {}s", timeout.as_secs()),
+                    });
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            Err(e) => {
+                return json!({"error": format!("failed to wait for monkey: {}", e)});
+            }
+        }
+    }
+}
+
 pub fn handle_message(msg: &Value) -> Option<Value> {
     let id = msg.get("id").cloned();
     let method = msg.get("method").and_then(Value::as_str)?;
@@ -348,6 +464,8 @@ mod tests {
             "project_info",
             "sdk_info",
             "device_list",
+            "build_project",
+            "run_project",
         ] {
             assert!(names.contains(&expected), "missing tool {}", expected);
         }
