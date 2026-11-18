@@ -54,6 +54,7 @@ diagnostics (`textDocument/publishDiagnostics` — parse errors plus every
 - `textDocument/references` — same-file find-references
 - `textDocument/completion` — keywords + declared names
 - `textDocument/formatting` — full-document format via `monkey-formatter`
+- `textDocument/rename` — same-file rename (declaration + all uses)
 
 All ranges use UTF-16 positions per the LSP spec.
 

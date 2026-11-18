@@ -147,6 +147,20 @@ monkey project info [path]
 Shows the discovered project's root, jungle/manifest paths, app type,
 `minApiLevel`, entry point, and jungle properties.
 
+## new
+
+```bash
+monkey new <dir> [--name Name] [--type watchface|datafield|watchapp|widget] [--device id]... [--min-api x.y.z]
+```
+
+Scaffolds a minimal Connect IQ project: `monkey.jungle`, `manifest.xml`,
+`resources/strings/strings.xml`, an SVG launcher icon, and a two-file app
+(`source/<Name>App.mc` + `source/<Name>View.mc`) using the
+`Application.AppBase` + `WatchUi.View` structure. Generated `.mc`/`.jungle`
+files are formatter-clean, so `monkey check` passes immediately and
+`monkey build` works once a device is added. Fails if the target already
+contains `monkey.jungle` or `manifest.xml`.
+
 ## build
 
 ```bash
@@ -223,6 +237,8 @@ Runs a language server over stdio (LSP, full document sync). Capabilities:
   under the cursor.
 - **`textDocument/formatting`** — full-document formatting via
   `monkey-formatter` (returns no edit when already formatted).
+- **`textDocument/rename`** — same-file rename returning a `WorkspaceEdit`
+  covering the declaration and all uses; rejects invalid identifiers.
 
 All positions are UTF-16-correct. Point your editor's language-server
 setting at `monkey lsp`; jungle documents get diagnostics, formatting,

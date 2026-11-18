@@ -1,8 +1,8 @@
 # AGENTS.md — monkey-lsp
 
 Monkey C language server: LSP over stdio. Publishes lint diagnostics and
-serves document symbols, hover, definition, references, completion,
-and formatting.
+serves document symbols, hover, definition, references,
+completion, formatting, and rename.
 Part of the `monkey-*` toolchain workspace.
 
 ## Conventions
@@ -18,7 +18,8 @@ Part of the `monkey-*` toolchain workspace.
 - `intel.rs` collects declarations via `monkey-parser`'s `Visitor` —
   classes, methods, fields, enums, functions, vars, params. Jungle
   documents get diagnostics only (language features return empty/null).
-- Definition/references are same-file only; no cross-file index yet.
+- Definition/references/rename are same-file only; no cross-file
+  index yet.
 - Formatting delegates to `monkey-formatter` and returns a single
   full-document TextEdit (null when already formatted).
 - Deps: `monkey-core`, `monkey-formatter`, `monkey-linter`,

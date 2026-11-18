@@ -98,8 +98,11 @@ fn class_decl_shape() {
     assert_eq!(c.annotations.len(), 1);
     assert_eq!(c.annotations[0].name.text, "background");
     let sup = c.superclass.as_ref().expect("superclass");
+    let TypeRef::Path { path: sup_path, .. } = sup else {
+        panic!("expected path type");
+    };
     assert_eq!(
-        sup.path.iter().map(|i| i.text.as_str()).collect::<Vec<_>>(),
+        sup_path.iter().map(|i| i.text.as_str()).collect::<Vec<_>>(),
         ["WatchUi", "WatchFace"]
     );
 
@@ -123,13 +126,15 @@ fn class_decl_shape() {
     let on_update = fns.iter().find(|f| f.name.text == "onUpdate").unwrap();
     assert_eq!(on_update.params.len(), 1);
     assert_eq!(on_update.params[0].name.text, "dc");
+    fn ty_path(t: &TypeRef) -> Vec<String> {
+        match t {
+            TypeRef::Path { path, .. } => path.iter().map(|i| i.text.clone()).collect(),
+            _ => panic!("expected path type"),
+        }
+    }
     assert_eq!(
-        on_update.params[0].type_ann.as_ref().map(|t| t
-            .path
-            .iter()
-            .map(|i| i.text.as_str())
-            .collect::<Vec<_>>()),
-        Some(vec!["Dc"])
+        on_update.params[0].type_ann.as_ref().map(ty_path),
+        Some(vec!["Dc".to_string()])
     );
     assert!(on_update.return_type.is_some());
 }

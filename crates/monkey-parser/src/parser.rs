@@ -394,8 +394,44 @@ impl Parser {
         path
     }
 
-    /// Type reference: dotted path + optional `?`.
+    /// Type reference: primary (`path?` or `[type]`) optionally joined by `or`.
     fn parse_type(&mut self) -> TypeRef {
+        let first = self.parse_type_primary();
+        if self.at("or") {
+            let start = first.span().start;
+            let mut variants = vec![first];
+            while self.at("or") {
+                self.bump();
+                variants.push(self.parse_type_primary());
+            }
+            TypeRef::Union {
+                span: self.span_since(start),
+                variants,
+            }
+        } else {
+            first
+        }
+    }
+
+    /// Single type: `[T]` array or dotted `path` with optional `?`.
+    fn parse_type_primary(&mut self) -> TypeRef {
+        if self.at("[") {
+            let start = self.cur().start as u32;
+            self.bump(); // [
+            let mut elems = Vec::new();
+            if !self.at("]") {
+                elems.push(self.parse_type());
+                while self.at(",") {
+                    self.bump();
+                    elems.push(self.parse_type());
+                }
+            }
+            self.expect("]", "']'");
+            return TypeRef::Array {
+                span: self.span_since(start),
+                elems,
+            };
+        }
         let start = self.cur().start as u32;
         let path = self.parse_dotted_path();
         let nullable = if self.at("?") {
@@ -404,7 +440,7 @@ impl Parser {
         } else {
             false
         };
-        TypeRef {
+        TypeRef::Path {
             span: self.span_since(start),
             path,
             nullable,

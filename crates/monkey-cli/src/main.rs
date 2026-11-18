@@ -29,6 +29,7 @@ use monkey_core::{
 };
 
 mod build;
+mod scaffold;
 use monkey_formatter::{format_source, FormatOptions, LineEnding};
 use monkey_linter::{lint_monkeyc, lint_text};
 
@@ -48,6 +49,7 @@ COMMANDS:
     sdk       Manage/connect-info: list | detect | info
     device    List Connect IQ devices or show device info
     project   Project info: info [path]
+    new       Scaffold a new Connect IQ project
     build     Compile a Connect IQ project to bin/<name>.prg
     run       Build, start the simulator, and launch the app
     mcp       MCP server over stdio (tools for agents/editors)
@@ -88,6 +90,7 @@ fn main() -> ExitCode {
         "sdk" => cmd_sdk(&args[1..]),
         "device" => cmd_device(&args[1..]),
         "project" => cmd_project(&args[1..]),
+        "new" => cmd_new(&args[1..]),
         "build" => cmd_build(&args[1..], false),
         "run" => cmd_build(&args[1..], true),
         "mcp" => cmd_mcp(),
@@ -702,6 +705,60 @@ fn cmd_project(args: &[String]) -> ExitCode {
         other => {
             eprintln!("monkey: unknown project subcommand '{}' (info)", other);
             ExitCode::from(2)
+        }
+    }
+}
+
+/// `monkey new <dir> [--name X] [--type watchface|datafield|watchapp|widget]
+///   [--device id]... [--min-api x.y.z]`
+fn cmd_new(args: &[String]) -> ExitCode {
+    let (flags, rest) = take_flags(args, &["--name", "--type", "--device", "--min-api"]);
+    let pos = positional(&rest);
+    let Some(dir) = pos.first() else {
+        eprintln!("monkey new: missing directory");
+        eprintln!("usage: monkey new <dir> [--name Name] [--type watchface] [--device id] [--min-api 1.2.0]");
+        return ExitCode::from(2);
+    };
+    let app_type = flag_value(&flags, "--type")
+        .unwrap_or("watchface")
+        .to_string();
+    if !scaffold::APP_TYPES.contains(&app_type.as_str()) {
+        eprintln!(
+            "monkey new: unknown --type '{}' (expected: {})",
+            app_type,
+            scaffold::APP_TYPES.join(", ")
+        );
+        return ExitCode::from(2);
+    }
+    let devices: Vec<String> = flags
+        .iter()
+        .filter(|(f, _)| f == "--device")
+        .map(|(_, v)| v.clone())
+        .collect();
+    let no_devices = devices.is_empty();
+    let opts = scaffold::ScaffoldOptions {
+        dir: PathBuf::from(dir),
+        name: flag_value(&flags, "--name").map(str::to_string),
+        app_type,
+        devices,
+        min_api: flag_value(&flags, "--min-api")
+            .unwrap_or("1.2.0")
+            .to_string(),
+    };
+    match scaffold::scaffold(&opts) {
+        Ok(files) => {
+            for f in &files {
+                println!("created {}", f.display());
+            }
+            if no_devices {
+                println!("note: manifest has no <iq:product> entries — pass --device or edit manifest.xml");
+            }
+            println!("next: cd {} && monkey doctor . && monkey build .", dir);
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("monkey new: {}", e);
+            ExitCode::from(1)
         }
     }
 }
