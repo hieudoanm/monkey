@@ -43,7 +43,7 @@ fn functions(class: &ClassDecl) -> Vec<&FunctionDecl> {
 
 #[test]
 fn watchface_fixture_parses_clean() {
-    let r = parse_fixture("watchface.mc");
+    let r = parse_fixture("watchface.txt");
     assert!(
         r.diagnostics.is_empty(),
         "unexpected diagnostics: {:?}",
@@ -53,7 +53,7 @@ fn watchface_fixture_parses_clean() {
 
 #[test]
 fn misc_fixture_parses_clean() {
-    let r = parse_fixture("misc.mc");
+    let r = parse_fixture("misc.txt");
     assert!(
         r.diagnostics.is_empty(),
         "unexpected diagnostics: {:?}",
@@ -63,7 +63,7 @@ fn misc_fixture_parses_clean() {
 
 #[test]
 fn using_decls_and_aliases() {
-    let r = parse_fixture("watchface.mc");
+    let r = parse_fixture("watchface.txt");
     let usings: Vec<&UsingDecl> = r
         .file
         .items
@@ -90,7 +90,7 @@ fn using_decls_and_aliases() {
 
 #[test]
 fn class_decl_shape() {
-    let r = parse_fixture("watchface.mc");
+    let r = parse_fixture("watchface.txt");
     let cls = classes(&r);
     assert_eq!(cls.len(), 1);
     let c = cls[0];
@@ -136,7 +136,7 @@ fn class_decl_shape() {
 
 #[test]
 fn statements_and_expressions() {
-    let r = parse_fixture("watchface.mc");
+    let r = parse_fixture("watchface.txt");
     let c = classes(&r)[0];
     let on_update = functions(c)
         .into_iter()
@@ -264,7 +264,7 @@ fn path_expressions_collapse() {
 
 #[test]
 fn malformed_recovers_and_continues() {
-    let r = parse_fixture("malformed.mc");
+    let r = parse_fixture("malformed.txt");
     assert!(!r.diagnostics.is_empty());
     assert!(r
         .diagnostics
@@ -396,7 +396,7 @@ impl Visitor for Counter {
 
 #[test]
 fn visitor_walks_everything() {
-    let r = parse_fixture("watchface.mc");
+    let r = parse_fixture("watchface.txt");
     let mut c = Counter {
         exprs: 0,
         functions: 0,
@@ -410,7 +410,7 @@ fn visitor_walks_everything() {
 
 #[test]
 fn spans_are_within_source() {
-    let src = fixture("watchface.mc");
+    let src = fixture("watchface.txt");
     let r = parse(&src);
     // Reuse Counter's full expr walk but also validate each span.
     struct SpanCheck<'a> {

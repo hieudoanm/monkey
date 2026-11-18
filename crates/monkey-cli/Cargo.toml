@@ -15,4 +15,6 @@ monkey-core = { path = "../monkey-core" }
 monkey-formatter = { path = "../monkey-formatter" }
 monkey-linter = { path = "../monkey-linter" }
 monkey-parser = { path = "../monkey-parser" }
+monkey-project = { path = "../monkey-project" }
+monkey-sdk = { path = "../monkey-sdk" }
 monkey-syntax = { path = "../monkey-syntax" }

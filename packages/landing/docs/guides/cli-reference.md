@@ -30,11 +30,31 @@ monkey format [--check|--write] [--stdin] [--indent-spaces N|--indent-tabs] [pat
 monkey lint [paths...]
 ```
 
-Runs text and token lint rules. Diagnostics print as
-`path:line:col: severity: message [rule]` and the exit code is 1 on any finding.
+Runs text rules, lexical/syntax diagnostics, and AST-backed lint rules.
+Diagnostics print as `path:line:col: severity: message [code]` and the exit
+code is 1 on any finding.
 
-Current rules: `no-trailing-whitespace`, `no-multiple-empty-lines`,
-`use-space-indent`, `eof-newline`, `no-request-update-in-onupdate`.
+```bash
+monkey lint --json [paths...]    # JSON array of diagnostics
+monkey lint --sarif [paths...]   # SARIF 2.1.0 log
+```
+
+Rules (`monkey-linter` registry):
+
+| Code | Severity | Category | Description |
+|---|---|---|---|
+| `no-trailing-whitespace` | warning | general | Trailing whitespace at end of line |
+| `no-multiple-empty-lines` | warning | general | More than one consecutive blank line |
+| `use-space-indent` | warning | general | Tab indentation; spaces are used instead |
+| `eof-newline` | warning | general | File does not end with a newline |
+| `unreachable-code` | warning | general | Statement after return/break/continue/throw in the same block |
+| `unused-variable` | warning | general | Local variable declared but never referenced |
+| `identical-operands` | warning | general | Both sides of a comparison are identical |
+| `empty-block` | hint | general | Empty `{}` block |
+| `no-request-update-in-onupdate` | error | garmin | `requestUpdate()` inside `onUpdate` causes a continuous redraw loop |
+
+Lexical (`LEX001`–`LEX004`) and syntax (`PARSE001`) diagnostics from the
+lexer/parser are also reported.
 
 ## check
 
@@ -42,8 +62,9 @@ Current rules: `no-trailing-whitespace`, `no-multiple-empty-lines`,
 monkey check [paths...]
 ```
 
-`lint` plus a format-drift check — a superset of `lint`. Use this in CI and
-pre-commit hooks.
+`lint` plus a format-drift check — a superset of `lint`. Accepts `--json` and
+`--sarif` as well (format drift is reported as a `format-drift` diagnostic).
+Use this in CI and pre-commit hooks.
 
 ## tokens
 
@@ -64,6 +85,47 @@ Runs the Monkey C parser and reports lexical and syntax diagnostics
 (`LEX*`/`PARSE*` codes) with source spans. `--ast` dumps the parsed abstract
 syntax tree; `--stdin` reads source from stdin. The parser is permissive —
 it recovers from errors so it works on incomplete code.
+
+## doctor
+
+```bash
+monkey doctor [--sdk <path>] [--key <path>] [path]
+```
+
+Checks the local toolchain setup: Connect IQ SDK discovery, developer key,
+installed device profiles, and project discovery (`monkey.jungle` +
+`manifest.xml`) from `path` (default `.`). Prints `ok`/`warn`/`FAIL` per
+check; exits 1 when the SDK or key is missing.
+
+## sdk
+
+```bash
+monkey sdk list     # all discovered SDKs, newest first
+monkey sdk detect   # resolved SDK path + version
+monkey sdk info     # tools (monkeyc/monkeydo/connectiq/monkeydoc) + version
+```
+
+SDK lookup mirrors the editor extensions: `--sdk` flag →
+`MONKEYC_SDK_PATH`/`MONKEY_SDK` env → `current-sdk.cfg` → newest SDK under
+`Sdks/`.
+
+## device
+
+```bash
+monkey device list        # id, display name, resolution
+monkey device info <id>   # details for one device
+```
+
+Reads device profiles from the Connect IQ `Devices/` directory.
+
+## project
+
+```bash
+monkey project info [path]
+```
+
+Shows the discovered project's root, jungle/manifest paths, app type,
+`minApiLevel`, entry point, and jungle properties.
 
 ## Exit codes
 

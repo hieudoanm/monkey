@@ -1,6 +1,6 @@
 //! Diagnostic rendering: terminal output and JSON.
 
-use crate::diagnostic::Diagnostic;
+use crate::diagnostic::{Diagnostic, Severity};
 use crate::map::SourceMap;
 
 /// Render diagnostics in the classic `path:line:col: severity: message [code]`
@@ -44,6 +44,101 @@ pub fn render_diagnostics(path: &str, src: &str, diags: &[Diagnostic]) -> String
     out
 }
 
+/// Diagnostics for one file, used by the multi-file renderers.
+pub struct FileDiagnostics<'a> {
+    pub path: &'a str,
+    pub src: &'a str,
+    pub diagnostics: &'a [Diagnostic],
+}
+
+/// Serialize diagnostics for many files as a single JSON array.
+pub fn diagnostics_json_all(files: &[FileDiagnostics]) -> String {
+    let mut out = String::from("[");
+    let mut first = true;
+    for f in files {
+        let map = SourceMap::new(f.src);
+        for d in f.diagnostics {
+            if !first {
+                out.push(',');
+            }
+            first = false;
+            write_json_entry(&mut out, &map, f.src, f.path, d);
+        }
+    }
+    out.push(']');
+    out
+}
+
+/// Serialize diagnostics for many files as a SARIF 2.1.0 log.
+///
+/// Produces a single `run` whose `results` carry `ruleId`, `level`,
+/// `message.text`, and a `physicalLocation` (when the diagnostic has a
+/// span). Unique diagnostic codes are listed under `tool.driver.rules`.
+pub fn diagnostics_sarif(files: &[FileDiagnostics]) -> String {
+    // Collect unique rule ids in first-seen order.
+    let mut rules: Vec<&str> = Vec::new();
+    for f in files {
+        for d in f.diagnostics {
+            if !rules.contains(&d.code.as_str()) {
+                rules.push(d.code.as_str());
+            }
+        }
+    }
+
+    let mut out = String::from(
+        "{\"$schema\":\"https://json.schemastore.org/sarif-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"monkey\",\"rules\":[",
+    );
+    for (i, code) in rules.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&format!(
+            "{{\"id\":{},\"name\":{}}}",
+            json_string(code),
+            json_string(code)
+        ));
+    }
+    out.push_str("]}},\"results\":[");
+
+    let mut first = true;
+    for f in files {
+        let map = SourceMap::new(f.src);
+        for d in f.diagnostics {
+            if !first {
+                out.push(',');
+            }
+            first = false;
+            let level = match d.severity {
+                Severity::Error => "error",
+                Severity::Warning => "warning",
+                Severity::Information => "note",
+                Severity::Hint => "none",
+            };
+            let location = match d.span {
+                Some(s) => {
+                    let (line, col) = map.line_col(s.start, f.src);
+                    format!(
+                        ",\"locations\":[{{\"physicalLocation\":{{\"artifactLocation\":{{\"uri\":{}}},\"region\":{{\"startLine\":{},\"startColumn\":{}}}}}}}]",
+                        json_string(f.path),
+                        line,
+                        col
+                    )
+                }
+                None => String::new(),
+            };
+            out.push_str(&format!(
+                "{{\"ruleId\":{},\"level\":{},\"message\":{{\"text\":{}}}{}}}",
+                json_string(&d.code),
+                json_string(level),
+                json_string(&d.message),
+                location
+            ));
+        }
+    }
+    out.push_str("]}]}\n");
+    out
+}
+
 /// Serialize diagnostics as a JSON array.
 ///
 /// Shape per entry:
@@ -56,6 +151,14 @@ pub fn diagnostics_json(path: &str, src: &str, diags: &[Diagnostic]) -> String {
         if i > 0 {
             out.push(',');
         }
+        write_json_entry(&mut out, &map, src, path, d);
+    }
+    out.push(']');
+    out
+}
+
+fn write_json_entry(out: &mut String, map: &SourceMap, src: &str, path: &str, d: &Diagnostic) {
+    {
         let (line, col, span_json) = match d.span {
             Some(s) => {
                 let (l, c) = map.line_col(s.start, src);
@@ -99,8 +202,6 @@ pub fn diagnostics_json(path: &str, src: &str, diags: &[Diagnostic]) -> String {
             suggestions.join(","),
         ));
     }
-    out.push(']');
-    out
 }
 
 fn json_string(s: &str) -> String {

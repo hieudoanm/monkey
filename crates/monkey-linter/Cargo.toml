@@ -7,4 +7,6 @@ repository.workspace = true
 description = "Lint rules for Monkey C source"
 
 [dependencies]
+monkey-core = { path = "../monkey-core" }
+monkey-parser = { path = "../monkey-parser" }
 monkey-syntax = { path = "../monkey-syntax" }

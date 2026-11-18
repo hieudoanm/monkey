@@ -14,5 +14,7 @@ mod span;
 
 pub use diagnostic::{CodeSuggestion, Diagnostic, Severity};
 pub use map::SourceMap;
-pub use render::{diagnostics_json, render_diagnostics};
+pub use render::{
+    diagnostics_json, diagnostics_json_all, diagnostics_sarif, render_diagnostics, FileDiagnostics,
+};
 pub use span::Span;
