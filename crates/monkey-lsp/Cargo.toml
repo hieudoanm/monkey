@@ -12,4 +12,4 @@ monkey-formatter = { path = "../monkey-formatter" }
 monkey-linter = { path = "../monkey-linter" }
 monkey-parser = { path = "../monkey-parser" }
 monkey-syntax = { path = "../monkey-syntax" }
-serde_json = "1"
+serde_json = "=1.0.154"
