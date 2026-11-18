@@ -8,8 +8,10 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// App types accepted by `--type` (manifest `type` attribute values).
+/// App types accepted by `--type` (manifest `type` attribute values), plus
+/// `"barrel"` for Monkey Barrel (`<iq:barrel>`) library projects.
 pub const APP_TYPES: &[&str] = &["watchface", "datafield", "watchapp", "widget"];
+pub const BARREL_TYPE: &str = "barrel";
 
 pub struct ScaffoldOptions {
     /// Target directory (created if missing).
@@ -106,6 +108,44 @@ fn manifest_xml(opts: &ScaffoldOptions, app_name: &str) -> String {
     )
 }
 
+/// `<iq:barrel>` manifest — Monkey Barrel library project (unsigned,
+/// device-agnostic; built via `barrelbuild`).
+fn barrel_manifest_xml(opts: &ScaffoldOptions, name: &str) -> String {
+    let products = if opts.devices.is_empty() {
+        "    <iq:products/>\n".to_string()
+    } else {
+        let items: String = opts
+            .devices
+            .iter()
+            .map(|d| format!("      <iq:product id=\"{}\"/>\n", d))
+            .collect();
+        format!("    <iq:products>\n{}    </iq:products>\n", items)
+    };
+    format!(
+        r#"<?xml version="1.0"?>
+<iq:manifest version="3" xmlns:iq="http://www.garmin.com/xml/connectiq">
+  <iq:barrel id="{}" module="{}" version="1.0.0" minApiLevel="{}">
+{}
+    <iq:permissions/>
+    <iq:languages><iq:language>eng</iq:language></iq:languages>
+    <iq:barrels/>
+    <iq:annotations/>
+  </iq:barrel>
+</iq:manifest>
+"#,
+        generate_uuid(),
+        name,
+        opts.min_api,
+        products
+    )
+}
+
+/// Monkey Barrel source file — a `module` declaration other projects
+/// depend on via `<iq:depends name="..."/>`.
+fn barrel_mc(name: &str) -> String {
+    format!("module {} {{\n}}\n", name)
+}
+
 fn app_mc(app_name: &str, view_name: &str) -> String {
     format!(
         r#"import Toybox.Application;
@@ -188,43 +228,54 @@ pub fn scaffold(opts: &ScaffoldOptions) -> std::io::Result<Vec<PathBuf>> {
         ));
     }
 
-    let files: Vec<(PathBuf, String)> = vec![
-        (jungle, "project.manifest = manifest.xml\n".to_string()),
-        (manifest, manifest_xml(opts, &app_name)),
-        (
-            opts.dir.join("resources/strings/strings.xml"),
-            format!(
-                r#"<strings xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd">
+    let files: Vec<(PathBuf, String)> = if opts.app_type == BARREL_TYPE {
+        vec![
+            (jungle, "project.manifest = manifest.xml\n".to_string()),
+            (manifest, barrel_manifest_xml(opts, &app_name)),
+            (
+                opts.dir.join(format!("source/{}.mc", app_name)),
+                barrel_mc(&app_name),
+            ),
+        ]
+    } else {
+        vec![
+            (jungle, "project.manifest = manifest.xml\n".to_string()),
+            (manifest, manifest_xml(opts, &app_name)),
+            (
+                opts.dir.join("resources/strings/strings.xml"),
+                format!(
+                    r#"<strings xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd">
   <string id="AppName">{}</string>
 </strings>
 "#,
-                app_name
+                    app_name
+                ),
             ),
-        ),
-        (
-            opts.dir.join(format!("source/{}App.mc", app_name)),
-            app_mc(&app_name, &view_name),
-        ),
-        (
-            opts.dir.join("resources/drawables/drawables.xml"),
-            r#"<drawables xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd">
+            (
+                opts.dir.join(format!("source/{}App.mc", app_name)),
+                app_mc(&app_name, &view_name),
+            ),
+            (
+                opts.dir.join("resources/drawables/drawables.xml"),
+                r#"<drawables xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd">
   <bitmap id="LauncherIcon" filename="launcher_icon.svg" dithering="none" />
 </drawables>
 "#
-            .to_string(),
-        ),
-        (
-            opts.dir.join("resources/drawables/launcher_icon.svg"),
-            r##"<?xml version="1.0" encoding="UTF-8"?>
+                .to_string(),
+            ),
+            (
+                opts.dir.join("resources/drawables/launcher_icon.svg"),
+                r##"<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 35" width="35" height="35"><rect width="35" height="35" rx="8" fill="#1b1b1d"/><circle cx="17.5" cy="17.5" r="6" fill="#d71921"/></svg>
 "##
-            .to_string(),
-        ),
-        (
-            opts.dir.join(format!("source/{}.mc", view_name)),
-            view_mc(&app_name, &view_name),
-        ),
-    ];
+                .to_string(),
+            ),
+            (
+                opts.dir.join(format!("source/{}.mc", view_name)),
+                view_mc(&app_name, &view_name),
+            ),
+        ]
+    };
 
     let mut written = Vec::new();
     for (path, contents) in files {
@@ -276,6 +327,29 @@ mod tests {
         assert!(app.contains("class TestappApp extends Application.AppBase"));
         // Second scaffold into same dir must fail.
         assert!(scaffold(&opts).is_err());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn scaffold_barrel_writes_module_project() {
+        let dir = std::env::temp_dir().join(format!("monkey-new-barrel-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let opts = ScaffoldOptions {
+            dir: dir.clone(),
+            name: Some("mylib".to_string()),
+            app_type: BARREL_TYPE.to_string(),
+            devices: vec![],
+            min_api: "1.2.0".to_string(),
+        };
+        let files = scaffold(&opts).unwrap();
+        assert_eq!(files.len(), 3);
+        let manifest = fs::read_to_string(dir.join("manifest.xml")).unwrap();
+        assert!(manifest.contains("<iq:barrel"));
+        assert!(manifest.contains("module=\"Mylib\""));
+        assert!(manifest.contains("<iq:annotations/>"));
+        let mc = fs::read_to_string(dir.join("source/Mylib.mc")).unwrap();
+        assert!(mc.contains("module Mylib"));
+        assert!(!dir.join("resources").exists());
         let _ = fs::remove_dir_all(&dir);
     }
 }

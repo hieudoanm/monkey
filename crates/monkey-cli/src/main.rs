@@ -1123,17 +1123,20 @@ fn cmd_new(args: &[String]) -> ExitCode {
     let pos = positional(&rest);
     let Some(dir) = pos.first() else {
         eprintln!("monkey new: missing directory");
-        eprintln!("usage: monkey new <dir> [--name Name] [--type watchface] [--device id] [--min-api 1.2.0]");
+        eprintln!("usage: monkey new <dir> [--name Name] [--type watchface|datafield|watchapp|widget|barrel] [--device id] [--min-api 1.2.0]");
         return ExitCode::from(2);
     };
     let app_type = flag_value(&flags, "--type")
         .unwrap_or("watchface")
         .to_string();
-    if !scaffold::APP_TYPES.contains(&app_type.as_str()) {
+    let valid =
+        scaffold::APP_TYPES.contains(&app_type.as_str()) || app_type == scaffold::BARREL_TYPE;
+    if !valid {
         eprintln!(
-            "monkey new: unknown --type '{}' (expected: {})",
+            "monkey new: unknown --type '{}' (expected: {}, {})",
             app_type,
-            scaffold::APP_TYPES.join(", ")
+            scaffold::APP_TYPES.join(", "),
+            scaffold::BARREL_TYPE
         );
         return ExitCode::from(2);
     }

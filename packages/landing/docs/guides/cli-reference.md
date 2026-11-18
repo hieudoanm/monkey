@@ -242,7 +242,7 @@ there is no `project annotations` command for apps; edit barrel manifests'
 ## new
 
 ```bash
-monkey new <dir> [--name Name] [--type watchface|datafield|watchapp|widget] [--device id]... [--min-api x.y.z]
+monkey new <dir> [--name Name] [--type watchface|datafield|watchapp|widget|barrel] [--device id]... [--min-api x.y.z]
 ```
 
 Scaffolds a minimal Connect IQ project:
@@ -253,6 +253,13 @@ Scaffolds a minimal Connect IQ project:
 - An SVG launcher icon
 - A two-file app (`source/<Name>App.mc` + `source/<Name>View.mc`) using the
   `Application.AppBase` + `WatchUi.View` structure
+
+With `--type barrel`, scaffolds a Monkey Barrel library instead:
+
+- `monkey.jungle` + `manifest.xml` with an `<iq:barrel>` element
+  (`id`, `module`, `version`, `minApiLevel`) and an empty
+  `<iq:products>`/permissions section
+- `source/<Name>.mc` containing an empty `module <Name> { }`
 
 Generated `.mc`/`.jungle` files are formatter-clean, so `monkey check` passes
 immediately and `monkey build` works once a device is added. Fails if the
@@ -429,8 +436,12 @@ Capabilities:
   `textDocument/publishDiagnostics` on open/change/save/close.
 - **`textDocument/documentSymbol`** — hierarchical outline of classes,
   methods, fields, enums, and functions.
+- **`workspace/symbol`** — project-wide symbol search (Ctrl+T) over all
+  indexed `*.mc` declarations.
 - **`textDocument/hover`** — markdown signature/kind for the declaration
-  under the cursor (params and enum members included).
+  under the cursor (params and enum members included); `Toybox.*` members
+  show the SDK's `api.debug.xml` documentation (description, params,
+  returns).
 - **`textDocument/definition`** — jump to a declaration, across files.
 - **`textDocument/completion`** — Monkey C keywords, statement snippets
   (`fn`, `class`, `if`, `for`, `while`, `try`, `var`, `method` — LSP

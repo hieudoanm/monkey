@@ -35,7 +35,15 @@
     "onLanguage:monkeyc",
     "onLanguage:jungle",
     "onCommand:monkeyc.formatDocument",
-    "onCommand:monkeyc.runtimePreview"
+    "onCommand:monkeyc.runtimePreview",
+    "onCommand:monkeyc.build",
+    "onCommand:monkeyc.run",
+    "onCommand:monkeyc.test",
+    "onCommand:monkeyc.export",
+    "onCommand:monkeyc.debug",
+    "onCommand:monkeyc.clean",
+    "onCommand:monkeyc.projectInfo",
+    "onCommand:monkeyc.doctor"
   ],
   "contributes": {
     "languages": [
@@ -109,6 +117,46 @@
         "title": "Runtime Preview (Simulator)",
         "command": "monkeyc.runtimePreview",
         "category": "Monkey C"
+      },
+      {
+        "title": "Build PRG",
+        "command": "monkeyc.build",
+        "category": "Monkey C"
+      },
+      {
+        "title": "Build and Run (Simulator)",
+        "command": "monkeyc.run",
+        "category": "Monkey C"
+      },
+      {
+        "title": "Test",
+        "command": "monkeyc.test",
+        "category": "Monkey C"
+      },
+      {
+        "title": "Export .iq",
+        "command": "monkeyc.export",
+        "category": "Monkey C"
+      },
+      {
+        "title": "Debug (Monkeybrains)",
+        "command": "monkeyc.debug",
+        "category": "Monkey C"
+      },
+      {
+        "title": "Clean Build Output",
+        "command": "monkeyc.clean",
+        "category": "Monkey C"
+      },
+      {
+        "title": "Project Info",
+        "command": "monkeyc.projectInfo",
+        "category": "Monkey C"
+      },
+      {
+        "title": "Doctor (SDK/Key Check)",
+        "command": "monkeyc.doctor",
+        "category": "Monkey C"
       }
     ],
     "breakpoints": [
@@ -145,7 +193,7 @@
         "monkeyC.cliPath": {
           "type": "string",
           "default": "monkey",
-          "description": "Path to the monkey CLI used for lint diagnostics."
+          "description": "Path to the monkey CLI used for lint diagnostics and Monkey C commands (build/run/test/export/…)."
         },
         "monkeyC.lintEnabled": {
           "type": "boolean",

@@ -1,8 +1,9 @@
 # AGENTS.md — monkey-lsp
 
 Monkey C language server: LSP over stdio. Publishes lint diagnostics and
-serves document symbols, hover, definition, references,
-completion, formatting, and rename.
+serves document/workspace symbols, hover (incl. Toybox API docs),
+definition, references, completion, formatting, rename, signature help,
+code actions, and type hierarchy.
 Part of the `monkey-*` toolchain workspace.
 
 ## Conventions
@@ -12,8 +13,9 @@ Part of the `monkey-*` toolchain workspace.
 - Incremental document sync (`textDocumentSync: 2`); diagnostics computed
   by `monkey-linter` on didOpen/didChange/didSave; didClose clears.
 - `ProjectIndex` (`index.rs`) scans workspace `*.mc` files for
-  project-wide definition/references/rename; `toybox.rs` loads the SDK's
-  `api.debug.xml` for `Toybox.*` member completion.
+  project-wide definition/references/rename/workspace-symbol;
+  `toybox.rs` loads the SDK's `api.debug.xml` for `Toybox.*` member
+  completion, return-type inference, and hover documentation.
 - Positions must be LSP-correct: 0-based line, UTF-16 `character` — see
   `position_at_byte` (byte→LSP) and `intel::offset_at` (LSP→byte).
 - Diagnostic severity mapping: error=1, warning=2, information=3, hint=4;

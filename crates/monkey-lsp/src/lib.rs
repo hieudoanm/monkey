@@ -100,6 +100,7 @@ impl Server {
                             },
                             "callHierarchyProvider": true,
                             "typeHierarchyProvider": true,
+                            "workspaceSymbolProvider": true,
                             "codeActionProvider": {
                                 "codeActionKinds": ["source.organizeImports", "quickfix", "refactor"]
                             }
@@ -320,6 +321,10 @@ impl Server {
                 let result = self.code_actions(&params);
                 out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
             }
+            "workspace/symbol" => {
+                let result = self.workspace_symbol_result(&params);
+                out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
             _ if is_request => {
                 out.response = Some(json!({
                     "jsonrpc": "2.0",
@@ -364,11 +369,17 @@ impl Server {
         if let Some(h) = intel::hover(&src, off) {
             return h;
         }
-        // Cross-file fallback: resolve the identifier under the cursor to a
-        // project-wide declaration (preferring same-file decls).
+        // Toybox API docs: member access like `Math.cos` / `Toybox.Math.cos`.
         let Some((word, a, b)) = self.word_at(&src, off) else {
             return Value::Null;
         };
+        if let Some(prefix) = Self::dotted_prefix(&src, a) {
+            if let Some(h) = self.toybox_doc(&prefix, &word, &src, a, b) {
+                return h;
+            }
+        }
+        // Cross-file fallback: resolve the identifier under the cursor to a
+        // project-wide declaration (preferring same-file decls).
         let idx = self.project_index();
         let decls = idx.find_decls(&word);
         let Some((f, d)) = decls
@@ -1145,6 +1156,59 @@ impl Server {
         json!(actions)
     }
 
+    /// `workspace/symbol` — substring search over every declaration in the
+    /// project index (Ctrl+T in editors).
+    fn workspace_symbol_result(&mut self, params: &Value) -> Value {
+        let query = params
+            .get("query")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_lowercase();
+        let idx = self.project_index();
+        let mut decls: Vec<(&index::IndexedFile, &intel::Decl)> = idx
+            .files
+            .iter()
+            .flat_map(|f| f.decls.iter().map(move |d| (f, d)))
+            .filter(|(_, d)| query.is_empty() || d.name.to_lowercase().contains(&query))
+            .collect();
+        decls.sort_by(|a, b| {
+            a.1.name
+                .cmp(&b.1.name)
+                .then_with(|| a.0.path.cmp(&b.0.path))
+        });
+        decls.truncate(200);
+        json!(decls
+            .iter()
+            .map(|(f, d)| {
+                let kind = match d.kind {
+                    "class" => 5,
+                    "method" => 6,
+                    "field" => 8,
+                    "enum" => 10,
+                    "function" => 12,
+                    "enum-member" => 22,
+                    _ => 13, // variable/param
+                };
+                let mut detail = d.detail.clone();
+                if let Some(p) = &d.parent {
+                    detail = format!("{} — {}", detail, p);
+                }
+                json!({
+                    "name": d.name,
+                    "kind": kind,
+                    "detail": detail,
+                    "location": {
+                        "uri": f.uri,
+                        "range": {
+                            "start": position_at_byte(&f.src, d.name_span.start as usize),
+                            "end": position_at_byte(&f.src, d.name_span.end as usize),
+                        },
+                    },
+                })
+            })
+            .collect::<Vec<_>>())
+    }
+
     /// Base identifier of a `X.` member-access prefix ending at `offset`,
     /// e.g. `view.` → `view`, `this.` → `this`.
     fn member_base(src: &str, offset: usize) -> Option<String> {
@@ -1162,6 +1226,80 @@ impl Server {
             .rev()
             .collect();
         (!ident.is_empty()).then_some(ident)
+    }
+
+    /// Dotted path immediately before byte `pos`, e.g. `Toybox.Math` when
+    /// `pos` is the start of `cos` in `Toybox.Math.cos`. `None` when the
+    /// preceding text isn't an `ident(.ident)*.` chain.
+    fn dotted_prefix(src: &str, pos: usize) -> Option<String> {
+        let b = src.as_bytes();
+        let is_ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
+        if pos == 0 || pos > b.len() || b[pos - 1] != b'.' {
+            return None;
+        }
+        let mut end = pos - 1; // index of the '.'
+        let mut start;
+        loop {
+            start = end;
+            while start > 0 && is_ident(b[start - 1]) {
+                start -= 1;
+            }
+            if start == end {
+                return None; // expected an identifier
+            }
+            // Another `ident.` segment before this one?
+            if start >= 2 && b[start - 1] == b'.' && is_ident(b[start - 2]) {
+                end = start - 1;
+                continue;
+            }
+            break;
+        }
+        Some(src[start..pos - 1].to_string())
+    }
+
+    /// Hover for a Toybox API member accessed as `prefix.member` — resolves
+    /// `Math`/`Toybox.Math`-style prefixes against the SDK's api.debug.xml
+    /// doc database.
+    fn toybox_doc(
+        &mut self,
+        prefix: &str,
+        member: &str,
+        src: &str,
+        a: usize,
+        b: usize,
+    ) -> Option<Value> {
+        if self.toybox.is_none() {
+            self.toybox = Some(Rc::new(toybox::ToyboxDb::load()));
+        }
+        let rc = self.toybox.as_ref()?;
+        let Some(db) = rc.as_ref() else {
+            return None;
+        };
+        // Candidates, most specific first: `Toybox.<prefix>` then `<prefix>`
+        // itself, then `find_owner` resolution for bare names like `Math`.
+        let mut doc = db
+            .doc(&format!("Toybox.{}", prefix), member)
+            .or_else(|| db.doc(prefix, member));
+        if doc.is_none() {
+            if let Some(owner) = db.find_owner(prefix) {
+                doc = db.doc(&owner, member);
+            }
+        }
+        let doc = doc?;
+        Some(json!({
+            "contents": {
+                "kind": "markdown",
+                "value": format!(
+                    "**Toybox API** `{}`\n\n{}",
+                    format!("{}.{}", prefix, member),
+                    doc
+                ),
+            },
+            "range": {
+                "start": position_at_byte(src, a),
+                "end": position_at_byte(src, b),
+            },
+        }))
     }
 
     fn completion_result(&mut self, params: &Value) -> Value {
@@ -1896,5 +2034,80 @@ mod tests {
         // `this.count` member uses (line 5) count.
         assert!(lines.iter().all(|l| *l == 5), "lines: {:?}", lines);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn workspace_symbol_searches_project() {
+        let dir = std::env::temp_dir().join(format!("monkey-lsp-ws-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("a.mc"),
+            "class Alpha {\n  function shared() as Void {}\n}\n",
+        )
+        .unwrap();
+        std::fs::write(dir.join("b.mc"), "function shared() as Void {}\n").unwrap();
+        let mut s = Server::new();
+        s.handle(&msg(
+            "initialize",
+            json!({"workspaceFolders": [{"uri": index::path_to_uri(&dir), "name": "t"}]}),
+            Some(1),
+        ));
+        let out = s.handle(&msg(
+            "workspace/symbol",
+            json!({"query": "shared"}),
+            Some(2),
+        ));
+        let syms = out.response.unwrap()["result"].as_array().unwrap().clone();
+        assert_eq!(syms.len(), 2, "got {:?}", syms);
+        assert!(syms.iter().all(|s| s["name"] == "shared"));
+        // Empty query returns everything (capped).
+        let out = s.handle(&msg("workspace/symbol", json!({"query": ""}), Some(3)));
+        let resp = out.response.unwrap();
+        let syms = resp["result"].as_array().unwrap();
+        assert!(syms.len() >= 3); // Alpha, shared x2
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn toybox_member_hover_shows_api_docs() {
+        let xml = r#"<entry parent="Toybox_Math" symbol="cos" pc="1"/>
+<functionEntry accessMode="public" name="cos" parent="Math">
+<documentation><![CDATA[<div class="description"> Get the cosine of an angle.<br/> <div class="returns">Returns  [Toybox::Lang::Float]</div></div>]]></documentation>
+</functionEntry>"#;
+        let src = "function f() as Void {\n  var x = Math.cos(0);\n}\n";
+        let mut s = Server::new();
+        s.toybox = Some(Rc::new(Some(toybox::ToyboxDb::parse(xml))));
+        s.handle(&msg(
+            "textDocument/didOpen",
+            json!({"textDocument": {"uri": "file:///a.mc", "languageId": "monkeyc", "version": 1, "text": src}}),
+            None,
+        ));
+        // Hover on `cos` — line 1, `Math.cos` starts at char 12; `cos` at 17.
+        let out = s.handle(&msg(
+            "textDocument/hover",
+            json!({"textDocument": {"uri": "file:///a.mc"},
+                   "position": {"line": 1, "character": 18}}),
+            Some(1),
+        ));
+        let resp = out.response.unwrap();
+        let value = resp["result"]["contents"]["value"].as_str().unwrap();
+        assert!(value.contains("cosine of an angle"), "got: {}", value);
+        assert!(value.contains("Math.cos"), "got: {}", value);
+    }
+
+    #[test]
+    fn dotted_prefix_detection() {
+        let src = "var x = Toybox.Math.cos(0);\n";
+        let pos = src.find("cos").unwrap();
+        assert_eq!(
+            Server::dotted_prefix(src, pos).as_deref(),
+            Some("Toybox.Math")
+        );
+        let pos = src.find("Math").unwrap();
+        assert_eq!(Server::dotted_prefix(src, pos).as_deref(), Some("Toybox"));
+        // No dot before the word → None.
+        let pos = src.find("var").unwrap();
+        assert_eq!(Server::dotted_prefix(src, pos), None);
     }
 }

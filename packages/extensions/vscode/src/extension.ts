@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { formatJungle, formatMonkeyC, type FormatOptions } from './format-monkeyc';
+import { registerMonkeyCommands } from './commands';
 import { MonkeyLintProvider } from './lint-monkeyc';
 import { startLanguageClient } from './lsp-client';
 import { runtimePreview } from './runtime-preview';
@@ -94,6 +95,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const previewCommand = vscode.commands.registerCommand('monkeyc.runtimePreview', async () => {
     await runtimePreview(context);
   });
+
+  registerMonkeyCommands(context);
 
   context.subscriptions.push(monkeyc, jungle, formatCommand, previewCommand);
 }

@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as cp from 'child_process';
 import * as vscode from 'vscode';
 
-interface Buildable {
+export interface Buildable {
   dir: string;
   jungle: string;
   manifest: string;
@@ -48,7 +48,7 @@ export function findSdk(): string | null {
   return null;
 }
 
-function findBuildable(startDir: string): Buildable | null {
+export function findBuildable(startDir: string): Buildable | null {
   let dir = startDir;
   for (let i = 0; i < 8; i += 1) {
     const jungle = path.join(dir, 'monkey.jungle');
