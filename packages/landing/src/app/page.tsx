@@ -27,12 +27,12 @@ const FEATURES: Feature[] = [
   {
     icon: LuTerminal,
     title: 'monkey CLI',
-    body: 'Zero-dependency Rust binary with format, lint, check, and tokens subcommands for .mc and .jungle files. Prebuilt for Linux, macOS, and Windows.',
+    body: 'Zero-dependency Rust binary with format, lint, check, parse, tokens, doctor, sdk, device, and project commands for .mc and .jungle files. Prebuilt for Linux, macOS, and Windows.',
   },
   {
     icon: LuBraces,
-    title: 'Formatter & linter',
-    body: 'Conservative Monkey C and Jungle formatting plus lint rules for whitespace, indentation, EOF newlines, and onUpdate pitfalls — shared across the CLI and both editors.',
+    title: 'Parser & linter',
+    body: 'A real Monkey C parser powers lint rules — unused variables, unreachable code, identical operands, empty blocks — plus lexer/parser diagnostics. JSON and SARIF output for CI.',
   },
   {
     icon: LuFileCheck,
@@ -42,17 +42,17 @@ const FEATURES: Feature[] = [
   {
     icon: LuCode,
     title: 'VS Code extension',
-    body: 'Syntax highlighting, document formatting, a dark theme, file icons, and runtime preview — packaged as a .vsix from the rolling latest release.',
+    body: 'Syntax highlighting, document formatting, inline lint diagnostics via monkey lint --stdin, a dark theme, file icons, and runtime preview — packaged as a .vsix.',
   },
   {
     icon: LuGlobe,
     title: 'Zed extension',
-    body: 'Loaded as a dev extension from source: Tree-sitter highlighting, external formatter, runtime-preview tasks, and the Monkey C theme and icons.',
+    body: 'Loaded as a dev extension from source: Tree-sitter highlighting, external formatter, lint/check tasks, runtime preview, and the Monkey C theme and icons.',
   },
   {
     icon: LuMonitor,
-    title: 'Simulator preview',
-    body: 'Both extensions build the nearest Connect IQ package with your local SDK and developer key, then launch it in the simulator — SDK paths are discovered, never hardcoded.',
+    title: 'SDK & device discovery',
+    body: 'monkey doctor, sdk, and device commands find your Connect IQ SDK, developer key, and 180+ device profiles using the same lookup order as the editor extensions — never hardcoded.',
   },
 ];
 
@@ -70,6 +70,17 @@ const DEMO_TERMINALS: { caption: string; lines: string[]; wide?: boolean }[] = [
     lines: ['$ monkey check .', 'checked 12 files — no issues'],
   },
   {
+    caption: 'Verify SDK, key, and project setup',
+    lines: [
+      '$ monkey doctor .',
+      'ok   sdk        …/Sdks/connectiq-sdk-mac-9.3.0 (9.3.0) — 3/3 tools',
+      'ok   key        ~/.config/garmin/developer_key',
+      'ok   devices    180 device profile(s)',
+      'ok   project    MyApp (watchface) → fr55',
+      'doctor: ready',
+    ],
+  },
+  {
     caption: 'Format a Monkey C file',
     lines: ['$ monkey format --write source/App.mc', 'formatted source/App.mc'],
   },
@@ -82,6 +93,10 @@ const DEMO_TERMINALS: { caption: string; lines: string[]; wide?: boolean }[] = [
       '    }',
       '}',
     ],
+  },
+  {
+    caption: 'Parse check',
+    lines: ['$ monkey parse App.mc', 'App.mc: ok'],
   },
 ];
 
@@ -139,7 +154,7 @@ const HomePage: NextPage = () => (
       primary={{ label: 'Get the CLI', href: '#install' }}
       secondary={{ label: 'See it in action', href: '#demo' }}
       stats={[
-        { value: '4', label: 'CLI subcommands' },
+        { value: '9', label: 'CLI commands' },
         { value: '2', label: 'editors supported' },
         { value: '0', label: 'runtime dependencies' },
       ]}>
@@ -156,7 +171,7 @@ const HomePage: NextPage = () => (
       <div className="mx-auto w-full max-w-6xl px-5">
         <SectionHead
           title="The monkey CLI"
-          description="format, lint, check, and tokens — files or whole directories, with editor-friendly stdin/stdout modes."
+          description="format, lint, check, parse, doctor, sdk, device, and project — files or whole directories, with editor-friendly stdin/stdout and JSON/SARIF modes."
         />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {DEMO_TERMINALS.map((t) => (
@@ -189,9 +204,9 @@ const HomePage: NextPage = () => (
               VS Code — monkey-c
             </h3>
             <p className="text-base-content/60 text-sm">
-              Highlighting for .mc/.mb/.mcgen/.jungle, document formatting, dark
-              theme, file icons, breakpoints, and Monkey C: Runtime Preview
-              (Simulator).
+              Highlighting for .mc/.mb/.mcgen/.jungle, document formatting,
+              inline lint diagnostics, dark theme, file icons, breakpoints, and
+              Monkey C: Runtime Preview (Simulator).
             </p>
             <a
               href={VSIX}
@@ -208,8 +223,8 @@ const HomePage: NextPage = () => (
             </h3>
             <p className="text-base-content/60 text-sm">
               Tree-sitter languages with highlighting, brackets, folds, outline,
-              and text objects; external formatter; theme and icons; Runtime
-              Preview / Build PRG tasks.
+              and text objects; external formatter; lint/check tasks; theme and
+              icons; Runtime Preview / Build PRG tasks.
             </p>
             <a
               href={`${GITHUB}/tree/master/packages/extensions/zed`}

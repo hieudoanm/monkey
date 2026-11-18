@@ -39,8 +39,9 @@ replace it.
 
 ## What this repo provides
 
-- `crates/` — the `monkey` CLI for formatting, linting, and checking
-  `*.mc`/`*.jungle` files, plus editor-friendly `--stdin`/`--check` modes.
+- `crates/` — the `monkey` CLI for formatting, linting, parsing, and checking
+  `*.mc`/`*.jungle` files, plus project/SDK/device discovery (`doctor`,
+  `sdk`, `device`, `project`) and editor-friendly `--stdin`/`--check` modes.
 - `packages/extensions/vscode/` and `packages/extensions/zed/` — editor support
   (highlighting, formatting, themes, icons) and optional simulator preview that
   wraps the SDK commands above.

@@ -1,8 +1,10 @@
 # CLI reference
 
-The `monkey` binary is a thin wrapper over the `monkey-syntax`,
-`monkey-formatter`, and `monkey-linter` crates. It has no runtime dependencies
-beyond those sibling crates.
+The `monkey` binary is a thin wrapper over the `monkey-*` crates: `monkey-core`
+(spans/diagnostics), `monkey-syntax` (lexer), `monkey-parser` (AST),
+`monkey-formatter`, `monkey-linter`, `monkey-project` (jungle/manifest), and
+`monkey-sdk` (SDK/key/device discovery). It has no runtime dependencies beyond
+those crates.
 
 ```text
 monkey <command> [options] [paths...]
@@ -23,6 +25,7 @@ monkey format [--check|--write] [--stdin] [--indent-spaces N|--indent-tabs] [pat
 - `--stdin` — read source from stdin, write result to stdout (for editor
   integrations).
 - `--indent-spaces N` / `--indent-tabs` — indentation style (default: 2 spaces).
+- `--crlf` — emit CRLF line endings.
 
 ## lint
 
@@ -113,7 +116,13 @@ monkey sdk info     # tools (monkeyc/monkeydo/connectiq/monkeydoc) + version
 
 SDK lookup mirrors the editor extensions: `--sdk` flag →
 `MONKEYC_SDK_PATH`/`MONKEY_SDK` env → `current-sdk.cfg` → newest SDK under
-`Sdks/`.
+`Sdks/`. The same env vars apply to `doctor` and `sdk info`/`detect`.
+
+Developer-key lookup (`doctor --key`, and later build commands):
+`--key` flag → `MONKEYC_DEVELOPER_KEY`/`MONKEY_KEY` env →
+`~/.config/garmin/developer_key[.der]`,
+`~/Library/Application Support/Garmin/ConnectIQ/developer_key.der`, and
+editor global-storage locations.
 
 ## device
 
@@ -135,6 +144,7 @@ Shows the discovered project's root, jungle/manifest paths, app type,
 
 ## Exit codes
 
-- `0` — clean.
-- `1` — lint findings or format drift.
+- `0` — clean / found.
+- `1` — lint findings or format drift; also `doctor`/`sdk`/`device`/`project`
+  when the SDK, key, or requested item is not found.
 - `2` — usage errors.
