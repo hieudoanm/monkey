@@ -1,7 +1,7 @@
 # Monkey C and Connect IQ
 
-Monkey C is the programming language for **Garmin Connect IQ**, the platform for
-Garmin's wearable devices — watches, cycling computers, and more.
+Monkey C is the programming language for **Garmin Connect IQ** — the platform
+for Garmin's wearable devices (watches, cycling computers, and more).
 
 ## The languages
 
@@ -34,15 +34,19 @@ monkeydo bin/<package>.prg <device>
 ```
 
 The `monkey` tool in this repo wraps `monkeyc`/`monkeydo`/`connectiq` for
-builds and simulator runs (`monkey build`, `monkey run`) and adds formatting,
-linting, parsing, and project/SDK/device discovery on top. It orchestrates the
-official SDK; it does not replace it.
+builds and simulator runs (`monkey build`, `monkey run`), and adds:
+
+- Formatting, linting, parsing, and checking of `*.mc`/`*.jungle` files
+- Project/SDK/device discovery
+
+It orchestrates the official SDK; it does not replace it.
 
 ## What this repo provides
 
-- `crates/` — the `monkey` CLI for formatting, linting, parsing, and checking
-  `*.mc`/`*.jungle` files, plus project/SDK/device discovery (`doctor`,
-  `sdk`, `device`, `project`) and editor-friendly `--stdin`/`--check` modes.
-- `packages/extensions/vscode/` and `packages/extensions/zed/` — editor support
-  (highlighting, formatting, themes, icons) and optional simulator preview that
-  wraps the SDK commands above.
+- `crates/` — the `monkey` CLI:
+  - Formatting, linting, parsing, and checking of `*.mc`/`*.jungle` files
+  - Project/SDK/device discovery (`doctor`, `sdk`, `device`, `project`)
+  - Editor-friendly `--stdin`/`--check` modes
+- `packages/extensions/vscode/` and `packages/extensions/zed/` — editor support:
+  - Highlighting, formatting, themes, icons
+  - Optional simulator preview that wraps the SDK commands above

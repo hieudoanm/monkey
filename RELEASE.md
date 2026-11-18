@@ -2,21 +2,24 @@
 
 Language support and tooling for Garmin Connect IQ Monkey C and Jungle:
 
-- `monkey` — standalone CLI for `*.mc`/`*.jungle` files: `format`, `lint`,
-  `check`, `parse`, `tokens`, `doctor`, `sdk`, `device`, `project`, `new`,
-  `test`, `build`, and `run`, plus `mcp` and `lsp` stdio servers for agent/editor
-  integrations (MCP tools for lint/parse/format/project/SDK/device; LSP
-  diagnostics, document symbols, hover, definition, references,
-  completion, formatting, project-wide rename (receiver-aware for
-  `this.`/`super.`/typed receivers, enum-member owner checks), signature
-  help, and member completion backed by the SDK's Toybox API database
-  (including method return types); `monkey.jungle` `lint.*` keys configure
-  rules; MCP also exposes build/run tools; `monkey test --run --device all`
-  iterates manifest products). JSON/SARIF output for CI, `--stdin` modes, `monkey-ignore`
-  suppression comments, Connect IQ SDK / developer-key / device discovery,
-  and PRG builds + simulator launches via the official SDK. Prebuilt binaries for
-  Linux (x86_64), macOS (Apple Silicon), and Windows (x86_64) are attached
-  below.
+- `monkey` — standalone CLI for `*.mc`/`*.jungle` files. Subcommands:
+  `format`, `lint`, `check`, `parse`, `tokens`, `doctor`, `sdk`, `device`,
+  `project`, `new`, `test`, `build`, and `run`, plus `mcp` and `lsp` stdio
+  servers for agent/editor integrations.
+  - MCP tools for lint/parse/format/project/SDK/device.
+  - LSP diagnostics, document symbols, hover, definition, references,
+    completion, formatting, project-wide rename (receiver-aware for
+    `this.`/`super.`/typed receivers, enum-member owner checks), signature
+    help, and member completion backed by the SDK's Toybox API database
+    (including method return types).
+  - `monkey.jungle` `lint.*` keys configure rules.
+  - MCP also exposes build/run tools.
+  - `monkey test --run --device all` iterates manifest products.
+  - JSON/SARIF output for CI, `--stdin` modes, `monkey-ignore` suppression
+    comments, Connect IQ SDK / developer-key / device discovery.
+  - PRG builds + simulator launches via the official SDK.
+  - Prebuilt binaries for Linux (x86_64), macOS (Apple Silicon), and Windows
+    (x86_64) are attached below.
 - `extension-monkey-c.vsix` — VS Code extension with syntax highlighting,
   document formatting, inline lint diagnostics (persistent `monkey lint --serve` process),
   a dark theme, file icons, and a runtime-preview command.

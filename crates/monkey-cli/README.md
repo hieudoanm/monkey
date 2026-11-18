@@ -50,9 +50,13 @@ monkey lsp                          # language server (diagnostics, symbols, hov
 - `mcp` — MCP server exposing lint/parse/format/project/sdk/device tools.
 - `lsp` — language server: lint diagnostics plus document symbols, hover, definition, references, completion, formatting, and rename.
 
-SDK and key resolution mirrors the editor extensions: explicit flag →
-`MONKEYC_SDK_PATH`/`MONKEY_SDK` and `MONKEYC_DEVELOPER_KEY`/`MONKEY_KEY` env
-vars → `current-sdk.cfg` / standard Garmin paths → newest SDK under `Sdks/`.
+SDK and key resolution mirrors the editor extensions:
+
+1. Explicit flag
+2. `MONKEYC_SDK_PATH`/`MONKEY_SDK` and `MONKEYC_DEVELOPER_KEY`/`MONKEY_KEY`
+   env vars
+3. `current-sdk.cfg` / standard Garmin paths
+4. Newest SDK under `Sdks/`
 
 Paths may be files or directories; directories are searched recursively for
 `*.mc` and `*.jungle` (skipping `node_modules`, `target`, `.git`).

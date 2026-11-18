@@ -1,8 +1,12 @@
 # MCP and LSP integrations
 
-The `monkey` binary can run as a **Model Context Protocol (MCP) server** or a
-minimal **language server (LSP)** — both over stdio, both dependency-free
-wrappers around the same `monkey-*` crates the CLI uses.
+The `monkey` binary can run as:
+
+- An **MCP (Model Context Protocol) server**
+- A minimal **language server (LSP)**
+
+Both speak over stdio and are dependency-free wrappers around the same
+`monkey-*` crates the CLI uses.
 
 ## MCP server
 
@@ -10,9 +14,14 @@ wrappers around the same `monkey-*` crates the CLI uses.
 monkey mcp
 ```
 
-Speaks newline-delimited JSON-RPC (`2024-11-05`): `initialize`,
-`notifications/initialized`, `tools/list`, `tools/call`. Point any MCP client
-at it:
+Speaks newline-delimited JSON-RPC (`2024-11-05`). Methods:
+
+- `initialize`
+- `notifications/initialized`
+- `tools/list`
+- `tools/call`
+
+Point any MCP client at it:
 
 ```json
 {
@@ -44,9 +53,11 @@ Diagnostics come back as the same JSON array `monkey lint --json` emits.
 monkey lsp
 ```
 
-Speaks LSP over stdio with full document sync. Beyond publishing lint
-diagnostics (`textDocument/publishDiagnostics` — parse errors plus every
-`monkey-linter` rule, honoring `monkey-ignore`), it serves:
+Speaks LSP over stdio with full document sync.
+
+Beyond publishing lint diagnostics (`textDocument/publishDiagnostics` —
+parse errors plus every `monkey-linter` rule, honoring `monkey-ignore`), it
+serves:
 
 - `textDocument/documentSymbol` — class/method/field/enum outline
 - `textDocument/hover` — declaration signatures in markdown
@@ -62,11 +73,14 @@ diagnostics (`textDocument/publishDiagnostics` — parse errors plus every
 All ranges use UTF-16 positions per the LSP spec.
 
 Configure your editor to launch `monkey lsp` as the Monkey C language
-server. The bundled VS Code extension does this automatically via
-`vscode-languageclient` (`monkeyC.cliPath`, `monkeyC.lspEnabled`) and falls
-back to a persistent `monkey lint --serve` process when the LSP can't
-start. Zed: the bundled extension registers `monkey-lsp` — set
-`lsp.monkey.binary` in settings.json, see the Zed extension README.
+server:
+
+- **VS Code** — the bundled extension does this automatically via
+  `vscode-languageclient` (`monkeyC.cliPath`, `monkeyC.lspEnabled`) and falls
+  back to a persistent `monkey lint --serve` process when the LSP can't
+  start.
+- **Zed** — the bundled extension registers `monkey-lsp`; set
+  `lsp.monkey.binary` in settings.json (see the Zed extension README).
 
 ## Suppressing diagnostics
 

@@ -5,9 +5,13 @@ dark theme, file icons, and a Connect IQ runtime-preview task for
 [Monkey C](https://developer.garmin.com/connect-iq/monkey-c/) and
 `monkey.jungle` project files.
 
-This is the Zed port of [`packages/extensions/vscode`](../vscode). Zed uses Tree-sitter
-instead of TextMate grammars and has no extension command API, so formatting and
-the runtime preview are exposed as an external formatter and tasks.
+This is the Zed port of [`packages/extensions/vscode`](../vscode).
+
+Zed differences:
+
+- Uses Tree-sitter instead of TextMate grammars.
+- Has no extension command API — formatting is an external formatter.
+- The runtime preview is exposed as tasks.
 
 ## Features
 
@@ -46,12 +50,12 @@ official Garmin tools and the Connect IQ SDK.
 
 ### Development / local checkout
 
-1. Commit and push `packages/extensions/zed/grammars/tree-sitter-jungle` to `master` (or
-   change the `[grammars.jungle]` revision in `extension.toml` to a commit that
-   contains it). Zed downloads grammars by Git revision; it cannot read the
-   uncommitted working tree. For local-only testing you can temporarily set the
-   `[grammars.jungle]` `repository` to a `file://` URL pointing at the grammar
-   directory instead.
+1. Commit and push `packages/extensions/zed/grammars/tree-sitter-jungle` to
+   `master` (or change the `[grammars.jungle]` revision in `extension.toml` to
+   a commit that contains it). Zed downloads grammars by Git revision; it
+   cannot read the uncommitted working tree.
+   - For local-only testing, temporarily set the `[grammars.jungle]`
+     `repository` to a `file://` URL pointing at the grammar directory.
 2. In Zed, open the Extensions page and choose **Install Dev Extension**.
 3. Select `packages/extensions/zed`.
 4. Run `./scripts/install.sh` so `monkey-c-format` and `monkey-c-preview` are on
@@ -97,10 +101,11 @@ Install the CLI (see above), then add the external formatter to Zed's
 }
 ```
 
-If Zed was launched from the macOS Dock and cannot find `monkey-c-format`, use
-the absolute path in `command` (for example
-`"/Users/you/.local/bin/monkey-c-format"`), or launch Zed from a shell that has
-`~/.local/bin` on `PATH`.
+If Zed was launched from the macOS Dock and cannot find `monkey-c-format`:
+
+- Use the absolute path in `command` (for example
+  `"/Users/you/.local/bin/monkey-c-format"`), or
+- Launch Zed from a shell that has `~/.local/bin` on `PATH`.
 
 Options:
 
@@ -112,10 +117,12 @@ Options:
 --eol lf|crlf           Output line endings
 ```
 
-The formatter reads the buffer from stdin and writes the result to stdout, so
-unsaved buffers format correctly. It preserves comments and string/character
-literals. It is lightweight and conservative; it is not Garmin's official
-formatter.
+Formatter behavior:
+
+- Reads the buffer from stdin and writes the result to stdout — unsaved
+  buffers format correctly.
+- Preserves comments and string/character literals.
+- Lightweight and conservative; not Garmin's official formatter.
 
 ## Runtime preview
 
@@ -141,7 +148,7 @@ monkeydo bin/<package>.prg fr55
 ```
 
 Configuration through environment variables (set them in your shell, or in the
-task's `env` object):
+task's `env` object).
 
 | Variable                | Purpose                           |
 | ----------------------- | --------------------------------- |
@@ -167,23 +174,40 @@ Jungle. Point Zed at the `monkey` CLI in `settings.json`:
 }
 ```
 
-This provides inline diagnostics, hover, go-to-definition, completion,
-formatting, references, rename, and signature help. Jungle buffers get
-diagnostics only.
+This provides:
+
+- Inline diagnostics
+- Hover
+- Go-to-definition
+- Completion
+- Formatting
+- References
+- Rename
+- Signature help
+
+Jungle buffers get diagnostics only.
 
 > **Note:** the `lsp.monkey.binary` settings override is what actually
 > launches the server — Zed uses it in place of the extension's
 > `language_server_command`, so no Rust/WASM code is needed (same pattern
-> as the community `zed-customlsp` extension). It requires a Zed version
-> that honors `lsp.*.binary` for extension-registered servers; verify on
-> first use with `zed: open log` and look for the `monkey` server.
+> as the community `zed-customlsp` extension).
+>
+> - Requires a Zed version that honors `lsp.*.binary` for
+>   extension-registered servers.
+> - Verify on first use with `zed: open log` and look for the `monkey`
+>   server.
 
-Without `MONKEYC_SDK_PATH`, the CLI checks
-`~/Library/Application Support/Garmin/ConnectIQ/current-sdk.cfg`,
-`~/Library/Application Support/Garmin/ConnectIQ/Sdks`, and the Linux
-`~/.Garmin/ConnectIQ` equivalents. Without `MONKEYC_DEVELOPER_KEY`, it checks
-`~/.config/garmin/developer_key`, `~/.config/garmin/developer_key.der`, and the
-VS Code/Cursor global-storage locations used by the VS Code extension.
+Without `MONKEYC_SDK_PATH`, the CLI checks:
+
+- `~/Library/Application Support/Garmin/ConnectIQ/current-sdk.cfg`
+- `~/Library/Application Support/Garmin/ConnectIQ/Sdks`
+- The Linux `~/.Garmin/ConnectIQ` equivalents
+
+Without `MONKEYC_DEVELOPER_KEY`, it checks:
+
+- `~/.config/garmin/developer_key`
+- `~/.config/garmin/developer_key.der`
+- The VS Code/Cursor global-storage locations used by the VS Code extension
 
 You can also run the CLI directly:
 
@@ -228,8 +252,9 @@ packages/extensions/zed/
 └── samples/
 ```
 
-The Monkey C grammar is [`DuckSoft/tree-sitter-monkeyc`](https://github.com/DuckSoft/tree-sitter-monkeyc),
-pinned in `extension.toml`. The Jungle grammar is vendored in this repository.
+- The Monkey C grammar is [`DuckSoft/tree-sitter-monkeyc`](https://github.com/DuckSoft/tree-sitter-monkeyc),
+  pinned in `extension.toml`.
+- The Jungle grammar is vendored in this repository.
 
 ## Development checks
 
@@ -238,8 +263,12 @@ cd packages/extensions/zed
 make test
 ```
 
-This runs the formatter tests with `node --test` and the Jungle grammar corpus
-tests with `tree-sitter test`. You can also run them individually:
+This runs:
+
+- The formatter tests with `node --test`
+- The Jungle grammar corpus tests with `tree-sitter test`
+
+Run them individually:
 
 ```bash
 node --test formatter/
