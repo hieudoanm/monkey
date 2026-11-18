@@ -147,17 +147,30 @@ fn function_detail(f: &FunctionDecl, kind: &str) -> String {
 
 struct Collector {
     decls: Vec<Decl>,
+    /// Innermost enclosing class/enum name — parent for member decls.
     class_stack: Vec<String>,
-    /// function/method name → return type text, for `var x = f()` inference.
+    /// function name → return type text, for `var x = f()` inference.
     fn_returns: std::collections::HashMap<String, String>,
+    /// `Owner.method` → return type, for `var x = o.m()` inference.
+    method_returns: std::collections::HashMap<String, String>,
+    /// var/field/param name → inferred type, for `var x = y` inference.
+    known: std::collections::HashMap<String, String>,
 }
 
-fn collect_fn_returns_item(item: &Item, out: &mut std::collections::HashMap<String, String>) {
+fn collect_fn_returns_item(
+    item: &Item,
+    owner: Option<&str>,
+    out: &mut std::collections::HashMap<String, String>,
+    methods: &mut std::collections::HashMap<String, String>,
+) {
     match item {
         Item::Function(f) => {
             let ty = type_text(&f.return_type);
             if !ty.is_empty() {
-                out.insert(f.name.text.clone(), ty);
+                out.insert(f.name.text.clone(), ty.clone());
+                if let Some(o) = owner {
+                    methods.insert(format!("{}.{}", o, f.name.text), ty);
+                }
             }
         }
         Item::Class(c) => {
@@ -166,45 +179,91 @@ fn collect_fn_returns_item(item: &Item, out: &mut std::collections::HashMap<Stri
                     ClassMember::Function(f) => {
                         let ty = type_text(&f.return_type);
                         if !ty.is_empty() {
-                            out.insert(f.name.text.clone(), ty);
+                            out.insert(f.name.text.clone(), ty.clone());
+                            methods.insert(format!("{}.{}", c.name.text, f.name.text), ty);
                         }
                     }
-                    ClassMember::Class(inner) => {
-                        collect_fn_returns_item(&Item::Class((**inner).clone()), out)
-                    }
+                    ClassMember::Class(inner) => collect_fn_returns_item(
+                        &Item::Class((**inner).clone()),
+                        Some(&inner.name.text),
+                        out,
+                        methods,
+                    ),
                     _ => {}
                 }
             }
         }
         Item::Module(m) => {
             for i in &m.members {
-                collect_fn_returns_item(i, out);
+                collect_fn_returns_item(i, owner, out, methods);
             }
         }
         _ => {}
     }
 }
 
-impl Collector {
-    /// Infer an expression's type name where cheaply possible.
-    fn infer_expr(&self, e: &Expr) -> Option<String> {
-        match e {
-            Expr::New { type_, .. } => type_name_of(type_),
-            Expr::Cast { type_, .. } => type_name_of(type_),
-            Expr::Call { callee, .. } => match callee.as_ref() {
-                Expr::Ident(i) => self.fn_returns.get(&i.text).cloned(),
-                _ => None,
-            },
-            Expr::Literal(Literal::Str { .. } | Literal::Char { .. }) => Some("String".to_string()),
-            Expr::Literal(Literal::Number { .. }) => Some("Number".to_string()),
-            Expr::Literal(Literal::Bool { .. }) => Some("Boolean".to_string()),
-            Expr::Array { .. } => Some("Array".to_string()),
-            Expr::Dict { .. } => Some("Dictionary".to_string()),
-            Expr::Paren { expr, .. } | Expr::Postfix { expr, .. } | Expr::Unary { expr, .. } => {
-                self.infer_expr(expr)
+/// Shared type-inference context: name→type maps plus the class-scope
+/// stack (for `this`).
+pub(crate) struct InferCtx<'a> {
+    pub known: &'a std::collections::HashMap<String, String>,
+    pub fn_returns: &'a std::collections::HashMap<String, String>,
+    pub method_returns: &'a std::collections::HashMap<String, String>,
+    /// Innermost enclosing class names, outermost last — `this` resolves
+    /// to the last entry.
+    pub scopes: &'a [String],
+}
+
+/// Infer an expression's type name where cheaply possible.
+pub(crate) fn infer_expr(e: &Expr, ctx: &InferCtx) -> Option<String> {
+    match e {
+        Expr::New { type_, .. } => type_name_of(type_),
+        Expr::Cast { type_, .. } => type_name_of(type_),
+        Expr::This { .. } => ctx.scopes.last().cloned(),
+        Expr::Ident(i) => ctx.known.get(&i.text).cloned(),
+        Expr::Path { segments, .. } if segments.len() == 1 => {
+            ctx.known.get(&segments[0].text).cloned()
+        }
+        Expr::Literal(Literal::Str { .. } | Literal::Char { .. }) => Some("String".to_string()),
+        Expr::Literal(Literal::Number { .. }) => Some("Number".to_string()),
+        Expr::Literal(Literal::Bool { .. }) => Some("Boolean".to_string()),
+        Expr::Array { .. } => Some("Array".to_string()),
+        Expr::Dict { .. } => Some("Dictionary".to_string()),
+        Expr::Call { callee, .. } => match callee.as_ref() {
+            Expr::Ident(i) => ctx.fn_returns.get(&i.text).cloned(),
+            // `obj.m()` / `a.b.m()` — resolve the receiver's type, then
+            // look up `Type.m` in the method-return table.
+            Expr::Member { object, name, .. } => {
+                let owner = infer_expr(object, ctx)?;
+                ctx.method_returns
+                    .get(&format!("{}.{}", owner, name.text))
+                    .cloned()
+            }
+            Expr::Path { segments, .. } if segments.len() == 2 => {
+                let owner = ctx.known.get(&segments[0].text)?;
+                ctx.method_returns
+                    .get(&format!("{}.{}", owner, segments[1].text))
+                    .cloned()
             }
             _ => None,
+        },
+        Expr::Paren { expr, .. } | Expr::Postfix { expr, .. } | Expr::Unary { expr, .. } => {
+            infer_expr(expr, ctx)
         }
+        _ => None,
+    }
+}
+
+impl Collector {
+    fn infer(&self, e: &Expr) -> Option<String> {
+        infer_expr(
+            e,
+            &InferCtx {
+                known: &self.known,
+                fn_returns: &self.fn_returns,
+                method_returns: &self.method_returns,
+                scopes: &self.class_stack,
+            },
+        )
     }
 
     fn push(&mut self, name: &Ident, kind: &'static str, detail: String) {
@@ -242,7 +301,7 @@ impl Visitor for Collector {
             .type_ann
             .as_ref()
             .and_then(type_name_of)
-            .or_else(|| f.init.as_ref().and_then(|e| self.infer_expr(e)));
+            .or_else(|| f.init.as_ref().and_then(|e| self.infer(e)));
         let ty = type_text(&f.type_ann);
         let shown = if ty.is_empty() {
             inferred.clone().unwrap_or_default()
@@ -297,9 +356,12 @@ impl Visitor for Collector {
 
     fn visit_enum(&mut self, d: &EnumDecl) {
         self.push(&d.name, "enum", format!("enum {}", d.name.text));
+        // Enum members' parent is the enum, not an enclosing class.
+        self.class_stack.push(d.name.text.clone());
         for m in &d.members {
             self.visit_enum_member(m);
         }
+        self.class_stack.pop();
     }
 
     fn visit_enum_member(&mut self, m: &EnumMember) {
@@ -314,7 +376,7 @@ impl Visitor for Collector {
             .type_ann
             .as_ref()
             .and_then(type_name_of)
-            .or_else(|| d.init.as_ref().and_then(|e| self.infer_expr(e)));
+            .or_else(|| d.init.as_ref().and_then(|e| self.infer(e)));
         let ty = type_text(&d.type_ann);
         let kw = if d.mutable { "var" } else { "const" };
         // Prefer the annotation text; fall back to the inferred type name.
@@ -340,21 +402,246 @@ impl Visitor for Collector {
     }
 }
 
+/// Pre-pass: seed `name → type` from annotations and simple initializers so
+/// `var b = a` / `var c = a.field()`-style chains resolve one level deep.
+struct KnownTypes {
+    known: std::collections::HashMap<String, String>,
+    fn_returns: std::collections::HashMap<String, String>,
+}
+
+impl KnownTypes {
+    fn record(&mut self, name: &Ident, type_ann: &Option<TypeRef>, init: &Option<Expr>) {
+        let ty = type_ann.as_ref().and_then(type_name_of).or_else(|| {
+            init.as_ref().and_then(|e| {
+                infer_expr(
+                    e,
+                    &InferCtx {
+                        known: &self.known,
+                        fn_returns: &self.fn_returns,
+                        method_returns: &std::collections::HashMap::new(),
+                        scopes: &[],
+                    },
+                )
+            })
+        });
+        if let Some(t) = ty {
+            self.known.insert(name.text.clone(), t);
+        }
+    }
+}
+
+impl Visitor for KnownTypes {
+    fn visit_var_decl(&mut self, d: &VarDecl) {
+        self.record(&d.name, &d.type_ann, &d.init);
+        if let Some(i) = &d.init {
+            self.visit_expr(i);
+        }
+    }
+
+    fn visit_field(&mut self, f: &FieldDecl) {
+        self.record(&f.name, &f.type_ann, &f.init);
+        if let Some(i) = &f.init {
+            self.visit_expr(i);
+        }
+    }
+
+    fn visit_param(&mut self, p: &Param) {
+        if let Some(t) = p.type_ann.as_ref().and_then(type_name_of) {
+            self.known.insert(p.name.text.clone(), t);
+        }
+    }
+}
+
+/// Post-pass: `var x; … x = new Foo()` — infer un-annotated locals from
+/// later assignments inside the same function scope.
+struct AssignTypes<'a> {
+    ctx_maps: &'a InferMaps,
+    scopes: Vec<String>,
+    /// (name, inferred type, assign-ident span)
+    assigns: Vec<(String, Option<String>, Span)>,
+}
+
+struct InferMaps {
+    known: std::collections::HashMap<String, String>,
+    fn_returns: std::collections::HashMap<String, String>,
+    method_returns: std::collections::HashMap<String, String>,
+}
+
+impl<'a> AssignTypes<'a> {
+    fn infer(&self, e: &Expr) -> Option<String> {
+        infer_expr(
+            e,
+            &InferCtx {
+                known: &self.ctx_maps.known,
+                fn_returns: &self.ctx_maps.fn_returns,
+                method_returns: &self.ctx_maps.method_returns,
+                scopes: &self.scopes,
+            },
+        )
+    }
+}
+
+impl Visitor for AssignTypes<'_> {
+    fn visit_class(&mut self, d: &ClassDecl) {
+        self.scopes.push(d.name.text.clone());
+        for a in &d.annotations {
+            self.visit_annotation(a);
+        }
+        if let Some(s) = &d.superclass {
+            self.visit_type(s);
+        }
+        for m in &d.members {
+            self.visit_class_member(m);
+        }
+        self.scopes.pop();
+    }
+
+    fn visit_expr(&mut self, e: &Expr) {
+        if let Expr::Assign { target, value, .. } = e {
+            if let Expr::Ident(i) = target.as_ref() {
+                let ty = self.infer(value);
+                self.assigns.push((i.text.clone(), ty, i.span));
+            }
+        }
+        // Recurse — mirrors the default Visitor::visit_expr walk.
+        match e {
+            Expr::Missing { .. }
+            | Expr::Literal(_)
+            | Expr::This { .. }
+            | Expr::Super { .. }
+            | Expr::Ident(_)
+            | Expr::Path { .. } => {}
+            Expr::Call { callee, args, .. } => {
+                self.visit_expr(callee);
+                for a in args {
+                    self.visit_expr(a);
+                }
+            }
+            Expr::Member { object, .. } => self.visit_expr(object),
+            Expr::Index { object, index, .. } => {
+                self.visit_expr(object);
+                self.visit_expr(index);
+            }
+            Expr::Unary { expr, .. } | Expr::Postfix { expr, .. } | Expr::Paren { expr, .. } => {
+                self.visit_expr(expr)
+            }
+            Expr::Binary { left, right, .. }
+            | Expr::Assign {
+                target: left,
+                value: right,
+                ..
+            } => {
+                self.visit_expr(left);
+                self.visit_expr(right);
+            }
+            Expr::Ternary {
+                cond, then, else_, ..
+            } => {
+                self.visit_expr(cond);
+                self.visit_expr(then);
+                self.visit_expr(else_);
+            }
+            Expr::New { type_, args, .. } => {
+                self.visit_type(type_);
+                for a in args {
+                    self.visit_expr(a);
+                }
+            }
+            Expr::Cast { expr, type_, .. } => {
+                self.visit_expr(expr);
+                self.visit_type(type_);
+            }
+            Expr::Array { elems, .. } => {
+                for el in elems {
+                    self.visit_expr(el);
+                }
+            }
+            Expr::Dict { entries, .. } => {
+                for (k, v) in entries {
+                    self.visit_expr(k);
+                    self.visit_expr(v);
+                }
+            }
+        }
+    }
+}
+
 /// Collect every named declaration in `src` (parsed on demand).
 pub fn collect_decls(src: &str) -> Vec<Decl> {
     let parsed = monkey_parser::parse(src);
     // Pre-pass: function/method return types for `var x = f()` inference.
     let mut fn_returns = std::collections::HashMap::new();
+    let mut method_returns = std::collections::HashMap::new();
     for i in &parsed.file.items {
-        collect_fn_returns_item(i, &mut fn_returns);
+        collect_fn_returns_item(i, None, &mut fn_returns, &mut method_returns);
     }
+    // Seed name→type from annotations/simple inits.
+    let mut kt = KnownTypes {
+        known: std::collections::HashMap::new(),
+        fn_returns: fn_returns.clone(),
+    };
+    kt.visit_source_file(&parsed.file);
+    let known = kt.known;
+    let maps = InferMaps {
+        known: known.clone(),
+        fn_returns: fn_returns.clone(),
+        method_returns: method_returns.clone(),
+    };
     let mut c = Collector {
         decls: Vec::new(),
         class_stack: Vec::new(),
         fn_returns,
+        method_returns,
+        known,
     };
     c.visit_source_file(&parsed.file);
-    c.decls
+    let mut decls = c.decls;
+
+    // Assignment inference: `var x; … x = new Foo()` inside the same
+    // function scope. Exact scope matches win; globals (scope `None`)
+    // only fill decls still untyped after that.
+    let mut at = AssignTypes {
+        ctx_maps: &maps,
+        scopes: Vec::new(),
+        assigns: Vec::new(),
+    };
+    at.visit_source_file(&parsed.file);
+    for d in decls.iter_mut() {
+        if d.type_name.is_some() || d.kind != "variable" {
+            continue;
+        }
+        let decl_scope = enclosing_fn_span(src, d.name_span);
+        // Exact function-scope match first; file-scope decls then fall
+        // back to any assignment of the same name (module globals).
+        let mut found = None;
+        for (name, ty, span) in &at.assigns {
+            if name != &d.name {
+                continue;
+            }
+            let Some(ty) = ty else { continue };
+            if enclosing_fn_span(src, *span) == decl_scope {
+                found = Some(ty.clone());
+                break;
+            }
+        }
+        if found.is_none() && decl_scope.is_none() {
+            for (name, ty, _) in &at.assigns {
+                if name == &d.name {
+                    if let Some(t) = ty {
+                        found = Some(t.clone());
+                        break;
+                    }
+                }
+            }
+        }
+        if let Some(ty) = found {
+            d.type_name = Some(ty.clone());
+            if !d.detail.contains(':') {
+                d.detail = format!("{}: {}", d.detail, ty);
+            }
+        }
+    }
+    decls
 }
 
 // ---------- position helpers ----------
@@ -729,6 +1016,36 @@ pub fn completion(src: &str) -> Value {
 /// `member` mode is for methods/fields/enum-members: `.name` member accesses
 /// and path segments (`Enum.MEMBER`) count as uses, while bare identifiers
 /// only count inside the declaring class body (self-calls like `draw()`).
+/// `class_name → superclass name` for `super.x` owner resolution.
+fn collect_supers(file: &SourceFile) -> std::collections::HashMap<String, String> {
+    struct V {
+        map: std::collections::HashMap<String, String>,
+    }
+    impl Visitor for V {
+        fn visit_class(&mut self, d: &ClassDecl) {
+            if let Some(s) = &d.superclass {
+                if let Some(n) = type_name_of(s) {
+                    self.map.insert(d.name.text.clone(), n);
+                }
+            }
+            for a in &d.annotations {
+                self.visit_annotation(a);
+            }
+            if let Some(s) = &d.superclass {
+                self.visit_type(s);
+            }
+            for m in &d.members {
+                self.visit_class_member(m);
+            }
+        }
+    }
+    let mut v = V {
+        map: std::collections::HashMap::new(),
+    };
+    v.visit_source_file(file);
+    v.map
+}
+
 struct UseCollector {
     name: String,
     member: bool,
@@ -740,6 +1057,18 @@ struct UseCollector {
     /// Bare-ident uses inside them bind to the local, not a member —
     /// excluded in member mode (fields/methods shadowed by locals).
     shadowed: Vec<Span>,
+    /// Declaring class/enum name — owner check for `.name`/`Path` member
+    /// uses so same-named members of other types don't collide.
+    parent: Option<String>,
+    /// var/field/param name → type name, for receiver resolution.
+    types: std::collections::HashMap<String, String>,
+    /// Names of classes/enums declared in this file — a path root matching
+    /// one of these (but not `parent`) is a *different* owner.
+    type_names: std::collections::HashSet<String>,
+    /// class name → superclass name, for `super.x` resolution.
+    supers: std::collections::HashMap<String, String>,
+    /// Enclosing class names (innermost last) for `this` resolution.
+    scopes: Vec<String>,
     uses: Vec<Span>,
 }
 
@@ -749,9 +1078,90 @@ impl UseCollector {
     fn shadowed_at(&self, offset: usize) -> bool {
         self.shadowed.iter().any(|s| span_contains(*s, offset))
     }
+
+    /// Does identifier `name` (a receiver root like `v` in `v.member`)
+    /// resolve to the declaring type `parent`?
+    fn owner_matches(&self, name: &str, parent: &str) -> bool {
+        if let Some(t) = self.types.get(name) {
+            return t == parent;
+        }
+        // A known class/enum name that isn't the parent is a different
+        // owner; anything else is unresolved → count conservatively.
+        if self.type_names.contains(name) {
+            return name == parent;
+        }
+        true
+    }
+
+    /// Does `super.member` inside the current class reach `parent`?
+    fn super_matches(&self, parent: &str) -> bool {
+        let Some(start) = self.scopes.last() else {
+            return true;
+        };
+        let mut cur = start.clone();
+        for _ in 0..32 {
+            match self.supers.get(&cur) {
+                Some(next) => {
+                    if next == parent {
+                        return true;
+                    }
+                    cur = next.clone();
+                }
+                None => return false,
+            }
+        }
+        false
+    }
+
+    /// `Expr::Member` receiver check: `this.x`, `super.x`, `foo().x`, …
+    fn receiver_matches(&self, object: &Expr) -> bool {
+        let Some(parent) = self.parent.as_deref() else {
+            return true;
+        };
+        match object {
+            Expr::This { .. } => self.scopes.last().map(|s| s == parent).unwrap_or(true),
+            Expr::Super { .. } => self.super_matches(parent),
+            Expr::Ident(i) => self.owner_matches(&i.text, parent),
+            Expr::Path { segments, .. } if segments.len() == 1 => {
+                self.owner_matches(&segments[0].text, parent)
+            }
+            Expr::New { type_, .. } => type_name_of(type_).as_deref() == Some(parent),
+            Expr::Paren { expr, .. } | Expr::Postfix { expr, .. } | Expr::Unary { expr, .. } => {
+                self.receiver_matches(expr)
+            }
+            _ => true,
+        }
+    }
+
+    /// `Path` segment check: segments after the first are member accesses
+    /// (`v.count`, `Enum.MEMBER`); verify the owner when it's a single
+    /// identifier. Deeper prefixes are left conservative.
+    fn path_member_matches(&self, prefix: &[Ident]) -> bool {
+        let Some(parent) = self.parent.as_deref() else {
+            return true;
+        };
+        match prefix {
+            [root] => self.owner_matches(&root.text, parent),
+            _ => true,
+        }
+    }
 }
 
 impl Visitor for UseCollector {
+    fn visit_class(&mut self, d: &ClassDecl) {
+        self.scopes.push(d.name.text.clone());
+        for a in &d.annotations {
+            self.visit_annotation(a);
+        }
+        if let Some(s) = &d.superclass {
+            self.visit_type(s);
+        }
+        for m in &d.members {
+            self.visit_class_member(m);
+        }
+        self.scopes.pop();
+    }
+
     fn visit_expr(&mut self, e: &Expr) {
         match e {
             Expr::Ident(i) if i.text == self.name => {
@@ -767,22 +1177,31 @@ impl Visitor for UseCollector {
                 }
             }
             Expr::Path { segments, .. } => {
-                // `Foo.bar` / `Enum.MEMBER` — any segment may be the use.
-                // Same scope rules as bare idents (single-segment paths are
-                // how plain identifiers often parse).
-                for seg in segments {
-                    if seg.text == self.name {
-                        let inside = match self.class_span {
-                            Some(cs) => span_contains(cs, seg.span.start as usize),
-                            None => true,
-                        };
-                        if inside && !self.shadowed_at(seg.span.start as usize) {
+                for (idx, seg) in segments.iter().enumerate() {
+                    if seg.text != self.name {
+                        continue;
+                    }
+                    if self.member && idx > 0 {
+                        // Member segment (`v.name`, `Enum.NAME`) — check
+                        // the owner prefix resolves to the declaring type.
+                        if self.path_member_matches(&segments[..idx]) {
                             self.uses.push(seg.span);
                         }
+                        continue;
+                    }
+                    // Root segment / non-member mode: bare-ident rules.
+                    let inside = match self.class_span {
+                        Some(cs) => span_contains(cs, seg.span.start as usize),
+                        None => true,
+                    };
+                    if inside && !self.shadowed_at(seg.span.start as usize) {
+                        self.uses.push(seg.span);
                     }
                 }
             }
-            Expr::Member { name, .. } if self.member && name.text == self.name => {
+            Expr::Member { object, name, .. }
+                if self.member && name.text == self.name && self.receiver_matches(object) =>
+            {
                 self.uses.push(name.span);
             }
             _ => {}
@@ -931,14 +1350,23 @@ pub fn class_span(src: &str, name: &str) -> Option<Span> {
 }
 
 /// Uses of `name` with member-awareness: when `member` is set, `.name`
-/// accesses and path segments count, and bare identifiers are restricted to
-/// `class_span` (the declaring class body) when provided.
-pub fn uses_in_mode(src: &str, name: &str, member: bool, class_span: Option<Span>) -> Vec<Span> {
+/// accesses and path segments count, bare identifiers are restricted to
+/// `class_span` (the declaring class body) when provided, and member
+/// segments are only counted when their receiver resolves to `parent`
+/// (the declaring class/enum) — unresolved receivers count conservatively.
+pub fn uses_in_mode(
+    src: &str,
+    name: &str,
+    member: bool,
+    class_span: Option<Span>,
+    parent: Option<&str>,
+) -> Vec<Span> {
     let parsed = monkey_parser::parse(src);
+    let decls = collect_decls(src);
     // In member mode, find functions where a same-named local/param shadows
     // the member — bare uses there belong to the local.
     let shadowed = if member {
-        collect_decls(src)
+        decls
             .iter()
             .filter(|d| d.name == name && matches!(d.kind, "variable" | "param"))
             .filter_map(|d| enclosing_fn_span(src, d.name_span))
@@ -946,11 +1374,40 @@ pub fn uses_in_mode(src: &str, name: &str, member: bool, class_span: Option<Span
     } else {
         Vec::new()
     };
+    let (types, type_names) = if member {
+        let mut types = std::collections::HashMap::new();
+        let mut type_names = std::collections::HashSet::new();
+        for d in &decls {
+            match d.kind {
+                "class" | "enum" => {
+                    type_names.insert(d.name.clone());
+                }
+                _ => {
+                    if let Some(t) = &d.type_name {
+                        types.insert(d.name.clone(), t.clone());
+                    }
+                }
+            }
+        }
+        (types, type_names)
+    } else {
+        (Default::default(), Default::default())
+    };
+    let supers = if member {
+        collect_supers(&parsed.file)
+    } else {
+        Default::default()
+    };
     let mut c = UseCollector {
         name: name.to_string(),
         member,
         class_span,
         shadowed,
+        parent: parent.map(str::to_string),
+        types,
+        type_names,
+        supers,
+        scopes: Vec::new(),
         uses: Vec::new(),
     };
     c.visit_source_file(&parsed.file);
@@ -992,6 +1449,49 @@ pub fn class_members(src: &str, class_name: &str) -> Vec<(String, &'static str)>
         }
     }
     Vec::new()
+}
+
+/// If `name` is declared as `var name = <receiver>.<member>(...)`, return
+/// `(receiver_path, member)` — e.g. `("Math", "cos")` for `Math.cos(0)` or
+/// `("Toybox.Math", "cos")` for the fully-qualified form. Used to resolve
+/// Toybox method return types for completion.
+pub fn var_call_target(src: &str, name: &str) -> Option<(String, String)> {
+    let parsed = monkey_parser::parse(src);
+    struct V<'a> {
+        name: &'a str,
+        found: Option<(String, String)>,
+    }
+    impl Visitor for V<'_> {
+        fn visit_var_decl(&mut self, d: &VarDecl) {
+            if self.found.is_none() && d.name.text == self.name {
+                if let Some(Expr::Call { callee, .. }) = &d.init {
+                    match callee.as_ref() {
+                        Expr::Path { segments, .. } if segments.len() >= 2 => {
+                            if let Some(last) = segments.last() {
+                                let member = last.text.clone();
+                                let owner = segments[..segments.len() - 1]
+                                    .iter()
+                                    .map(|s| s.text.as_str())
+                                    .collect::<Vec<_>>()
+                                    .join(".");
+                                self.found = Some((owner, member));
+                            }
+                        }
+                        Expr::Member { name, .. } => {
+                            self.found = Some((String::new(), name.text.clone()));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            if let Some(i) = &d.init {
+                self.visit_expr(i);
+            }
+        }
+    }
+    let mut v = V { name, found: None };
+    v.visit_source_file(&parsed.file);
+    v.found
 }
 
 /// `textDocument/signatureHelp` — signature of the call enclosing `offset`.
@@ -1284,5 +1784,58 @@ mod tests {
         let members = class_members(src, "A");
         assert!(members.iter().any(|(n, _)| n == "c"));
         assert!(members.iter().any(|(n, k)| n == "m" && *k == "method"));
+    }
+
+    #[test]
+    fn enum_member_parent_is_enum() {
+        let decls = collect_decls("enum Color {\n  RED,\n  BLUE\n}\n");
+        let m = decls.iter().find(|d| d.name == "RED").unwrap();
+        assert_eq!(m.kind, "enum-member");
+        assert_eq!(m.parent.as_deref(), Some("Color"));
+    }
+
+    #[test]
+    fn member_uses_filtered_by_receiver_type() {
+        // `a.draw()` (a: A) counts for A.draw; `this.draw()` inside B and
+        // `b.draw()` (b: B) do not.
+        let src = "class A {\n  function draw() as Void {}\n}\nclass B {\n  var b = new B();\n  function draw() as Void {}\n  function f() as Void {\n    var a = new A();\n    a.draw();\n    this.draw();\n    b.draw();\n  }\n}\n";
+        let uses = uses_in_mode(src, "draw", true, class_span(src, "A"), Some("A"));
+        let texts: Vec<&str> = uses
+            .iter()
+            .map(|s| &src[s.start as usize..s.end as usize])
+            .collect();
+        assert_eq!(texts, vec!["draw"], "uses: {:?}", texts);
+        assert!(src[uses[0].start as usize..].starts_with("draw();"));
+    }
+
+    #[test]
+    fn enum_member_uses_filtered_by_owner() {
+        let src =
+            "enum Color {\n  RED,\n  BLUE\n}\nenum Size {\n  RED,\n  BIG\n}\nvar c = Color.RED;\nvar s = Size.RED;\n";
+        let uses = uses_in_mode(src, "RED", true, Some(Span::new(0, 0)), Some("Color"));
+        let texts: Vec<&str> = uses
+            .iter()
+            .map(|s| &src[s.start as usize..s.end as usize])
+            .collect();
+        assert_eq!(texts.len(), 1, "uses: {:?}", texts);
+        // The counted use must be the one in `Color.RED` (line 8), not `Size.RED`.
+        let line = src[..uses[0].start as usize].matches('\n').count();
+        assert_eq!(line, 8, "wrong RED matched at line {}", line);
+    }
+
+    #[test]
+    fn infers_types_through_vars_methods_and_assignments() {
+        let src = "class Foo {\n  function bar() as Foo {\n    return new Foo();\n  }\n}\nfunction f() as Void {\n  var a = new Foo();\n  var b = a;\n  var c = a.bar();\n  var d = null;\n  d = new Foo();\n}\n";
+        let decls = collect_decls(src);
+        let ty = |n: &str| {
+            decls
+                .iter()
+                .find(|d| d.name == n && d.kind == "variable")
+                .and_then(|d| d.type_name.clone())
+        };
+        assert_eq!(ty("a").as_deref(), Some("Foo"));
+        assert_eq!(ty("b").as_deref(), Some("Foo"), "var b = a");
+        assert_eq!(ty("c").as_deref(), Some("Foo"), "var c = a.bar()");
+        assert_eq!(ty("d").as_deref(), Some("Foo"), "d = new Foo()");
     }
 }

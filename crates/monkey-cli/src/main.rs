@@ -871,12 +871,13 @@ fn cmd_new(args: &[String]) -> ExitCode {
     }
 }
 
-/// `monkey test [--device <id>] [--sdk <path>] [--key <path>]
+/// `monkey test [--device <id>|all] [--sdk <path>] [--key <path>]
 ///              [--run] [--test <name>] [--no-simulator] [path]`
 ///
 /// Default: `monkey check` + `monkey build` verification gate (CI-friendly).
 /// With `--run`: also deploys the PRG and executes `Toybox.Test` tests in the
-/// simulator via `monkeydo -t` (`--test <name>` selects a single test).
+/// simulator via `monkeydo -t` (`--test <name>` selects a single test,
+/// `--device all` runs once per manifest product).
 fn cmd_test(args: &[String]) -> ExitCode {
     let (flags, rest) = take_flags(args, &["--sdk", "--key", "--device", "--test"]);
     let run_tests = args.iter().any(|a| a == "--run");
@@ -897,6 +898,40 @@ fn cmd_test(args: &[String]) -> ExitCode {
     let key = flag_value(&flags, "--key").map(PathBuf::from);
     let device = flag_value(&flags, "--device");
     let test_name = flag_value(&flags, "--test");
+    // `--device all` runs once per <iq:product> in the manifest — the
+    // CI-friendly equivalent of a device matrix (build gate or test run).
+    if device == Some("all") {
+        let project = monkey_project::discover_from(&start);
+        let products: Vec<String> = project.map(|p| p.products().to_vec()).unwrap_or_default();
+        if products.is_empty() {
+            eprintln!("monkey: --device all needs a manifest with <iq:product> entries");
+            return ExitCode::from(2);
+        }
+        let mut code = 0;
+        for d in &products {
+            eprintln!(
+                "monkey: === {} on {} ===",
+                if run_tests { "test" } else { "build" },
+                d
+            );
+            let c = if run_tests {
+                build::test_run(
+                    &start,
+                    sdk.as_deref(),
+                    key.as_deref(),
+                    Some(d),
+                    test_name,
+                    no_simulator,
+                )
+            } else {
+                build::build(&start, sdk.as_deref(), key.as_deref(), Some(d))
+            };
+            if c != 0 {
+                code = c;
+            }
+        }
+        return ExitCode::from(code as u8);
+    }
     let code = if run_tests {
         build::test_run(
             &start,

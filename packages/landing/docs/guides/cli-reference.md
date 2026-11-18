@@ -179,7 +179,7 @@ contains `monkey.jungle` or `manifest.xml`.
 ## test
 
 ```bash
-monkey test [--device <id>] [--sdk <path>] [--key <path>]
+monkey test [--device <id>|all] [--sdk <path>] [--key <path>]
             [--run] [--test <name>] [--no-simulator] [path]
 ```
 
@@ -195,6 +195,40 @@ parsed from the RESULTS block — failures emit `::error::` GitHub Actions
 annotations and a markdown table is appended to `$GITHUB_STEP_SUMMARY`.
 Note `monkeydo -t` exits non-zero even when tests pass — Monkey parses the
 summary instead.
+
+`--device all` runs the suite once per `<iq:product>` in `manifest.xml` —
+the in-process equivalent of a CI device matrix. For a real matrix (one
+runner per device), pass the device via a workflow matrix instead:
+
+```yaml
+# .github/workflows/test.yml — run Toybox.Test on every manifest product
+name: test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [fr55, venu3, fenix7]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Monkey
+        run: bash <(curl -fsSL https://raw.githubusercontent.com/hieudoanm/monkey/master/scripts/install.sh) --cli-only
+      - name: SDK + key
+        run: |
+          # Install the Connect IQ SDK and developer key per Garmin's docs,
+          # then export MONKEYC_SDK_PATH / MONKEYC_DEVELOPER_KEY.
+          :
+      - name: monkey test
+        run: monkey test --run --device ${{ matrix.device }}
+        env:
+          MONKEYC_SDK_PATH: ${{ secrets.MONKEYC_SDK_PATH }}
+          MONKEYC_DEVELOPER_KEY: ${{ secrets.MONKEYC_DEVELOPER_KEY }}
+```
+
+`--device all` is simpler for local runs and small manifests; the matrix
+above parallelizes and isolates per-device failures in CI.
 
 ## build
 
