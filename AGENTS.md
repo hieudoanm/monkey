@@ -17,7 +17,7 @@ Garmin Connect IQ.
   - `monkey-linter` — lint rules (`no-trailing-whitespace`, `no-multiple-empty-lines`, `use-space-indent`, `eof-newline`, `no-request-update-in-onupdate`, plus AST rules `unused-variable`, `unreachable-code`, `identical-operands`, `empty-block`; rule registry in `registry.rs`).
   - `monkey-project` — `monkey.jungle` + `manifest.xml` parsing, project discovery (walks up 8 dirs).
   - `monkey-sdk` — Connect IQ SDK discovery (`current-sdk.cfg`, `Sdks/` scan), developer-key lookup, `Devices/` device profiles.
-  - `monkey-cli` — `monkey` binary: `format`, `lint`, `check`, `tokens`, `parse`, `doctor`, `sdk`, `device`, `project` subcommands.
+  - `monkey-cli` — `monkey` binary: `format`, `lint`, `check`, `tokens`, `parse`, `doctor`, `sdk`, `device`, `project`, `build`, `run` subcommands.
 - `packages/extensions/vscode/` — VS Code extension for Monkey C/Jungle (TypeScript). Has its own `AGENTS.md` and README.
 - `packages/extensions/zed/` — Zed extension for Monkey C/Jungle (Tree-sitter, theme, icons, formatter CLI, runtime-preview task). Has its own `AGENTS.md` and README.
 - `packages/landing/` — Next.js static-export landing page deployed to GitHub Pages. Has its own `AGENTS.md`.

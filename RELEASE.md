@@ -3,9 +3,10 @@
 Language support and tooling for Garmin Connect IQ Monkey C and Jungle:
 
 - `monkey` — standalone CLI for `*.mc`/`*.jungle` files: `format`, `lint`,
-  `check`, `parse`, `tokens`, `doctor`, `sdk`, `device`, and `project`.
-  JSON/SARIF output for CI, `--stdin` modes for editor integrations, and
-  Connect IQ SDK / developer-key / device discovery. Prebuilt binaries for
+  `check`, `parse`, `tokens`, `doctor`, `sdk`, `device`, `project`, `build`,
+  and `run`. JSON/SARIF output for CI, `--stdin` modes for editor
+  integrations, Connect IQ SDK / developer-key / device discovery, and PRG
+  builds + simulator launches via the official SDK. Prebuilt binaries for
   Linux (x86_64), macOS (Apple Silicon), and Windows (x86_64) are attached
   below.
 - `extension-monkey-c.vsix` — VS Code extension with syntax highlighting,

@@ -10,6 +10,8 @@
 //!   monkey sdk    list|detect|info [--sdk <path>]
 //!   monkey device list|info <id>
 //!   monkey project info [path]
+//!   monkey build  [--device <id>] [--sdk <path>] [--key <path>] [path]
+//!   monkey run    [--device <id>] [--sdk <path>] [--key <path>] [--no-simulator] [path]
 //!
 //! Paths may be files or directories; directories are searched recursively
 //! for `*.mc` and `*.jungle` files.
@@ -23,6 +25,8 @@ use std::process::ExitCode;
 use monkey_core::{
     diagnostics_json_all, diagnostics_sarif, render_diagnostics, Diagnostic, FileDiagnostics,
 };
+
+mod build;
 use monkey_formatter::{format_source, FormatOptions, LineEnding};
 use monkey_linter::{lint_monkeyc, lint_text};
 
@@ -42,6 +46,8 @@ COMMANDS:
     sdk       Manage/connect-info: list | detect | info
     device    List Connect IQ devices or show device info
     project   Project info: info [path]
+    build     Compile a Connect IQ project to bin/<name>.prg
+    run       Build, start the simulator, and launch the app
 
 FORMAT OPTIONS:
     --check            Report which files would change (default for files)
@@ -78,6 +84,8 @@ fn main() -> ExitCode {
         "sdk" => cmd_sdk(&args[1..]),
         "device" => cmd_device(&args[1..]),
         "project" => cmd_project(&args[1..]),
+        "build" => cmd_build(&args[1..], false),
+        "run" => cmd_build(&args[1..], true),
         "-h" | "--help" | "help" => {
             print!("{}", USAGE);
             ExitCode::SUCCESS
@@ -690,4 +698,23 @@ fn cmd_project(args: &[String]) -> ExitCode {
             ExitCode::from(2)
         }
     }
+}
+
+/// `monkey build|run [--device <id>] [--sdk <path>] [--key <path>] [--no-simulator] [path]`
+fn cmd_build(args: &[String], do_run: bool) -> ExitCode {
+    let (flags, rest) = take_flags(args, &["--sdk", "--key", "--device"]);
+    let start = positional(&rest)
+        .first()
+        .cloned()
+        .unwrap_or_else(|| ".".to_string());
+    let sdk = flag_value(&flags, "--sdk").map(PathBuf::from);
+    let key = flag_value(&flags, "--key").map(PathBuf::from);
+    let device = flag_value(&flags, "--device");
+    let no_simulator = args.iter().any(|a| a == "--no-simulator");
+    let code = if do_run {
+        build::run(&start, sdk.as_deref(), key.as_deref(), device, no_simulator)
+    } else {
+        build::build(&start, sdk.as_deref(), key.as_deref(), device)
+    };
+    ExitCode::from(code as u8)
 }

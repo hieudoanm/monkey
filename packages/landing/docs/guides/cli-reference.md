@@ -142,6 +142,30 @@ monkey project info [path]
 Shows the discovered project's root, jungle/manifest paths, app type,
 `minApiLevel`, entry point, and jungle properties.
 
+## build
+
+```bash
+monkey build [--device <id>] [--sdk <path>] [--key <path>] [path]
+```
+
+Compiles the discovered project with the official SDK:
+`monkeyc -f <monkey.jungle> -d <device> -o bin/<name>.prg -y <key> -w`.
+Prints the `.prg` path on success; streams `monkeyc` output.
+
+Device selection: `--device` → `MONKEYC_DEVICE` env → first `<iq:product>`
+in the manifest.
+
+## run
+
+```bash
+monkey run [--device <id>] [--sdk <path>] [--key <path>] [--no-simulator] [path]
+```
+
+Builds, launches the Connect IQ simulator (`connectiq`), waits for it to boot,
+then deploys the PRG with `monkeydo <prg> <device>` — the same flow as the
+editor runtime preview. `--no-simulator` skips the simulator launch (useful
+when it's already running or deploying to a physical device).
+
 ## Exit codes
 
 - `0` — clean / found.

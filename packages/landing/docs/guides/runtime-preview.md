@@ -45,5 +45,12 @@ monkey-c-preview --file source/MyApp.mc --device fr55
 monkey-c-preview --file source/MyApp.mc --build-only
 ```
 
+The `monkey` CLI offers the same flow without an editor:
+
+```bash
+monkey build .   # → bin/<name>.prg
+monkey run .     # build + simulator + monkeydo (--no-simulator to skip)
+```
+
 > Runtime preview depends on your local SDK and key; nothing is hardcoded and no
 > credentials are committed.
