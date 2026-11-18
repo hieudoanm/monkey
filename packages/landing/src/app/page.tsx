@@ -58,7 +58,7 @@ const FEATURES: Feature[] = [
   {
     icon: LuBot,
     title: 'MCP & language server',
-    body: 'monkey mcp exposes lint, parse, format, project, SDK, and device tools to AI agents over stdio; monkey lsp adds diagnostics, document symbols, hover, go-to-definition, and completion to any LSP-capable editor.',
+    body: 'monkey mcp exposes lint, parse, format, project, SDK, and device tools to AI agents over stdio; monkey lsp adds diagnostics, document symbols, hover, go-to-definition, find-references, completion, and formatting to any LSP-capable editor.',
   },
   {
     icon: LuPackage,

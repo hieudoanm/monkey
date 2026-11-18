@@ -33,6 +33,8 @@ Available tools:
 | `project_info`   | Discover `monkey.jungle` + `manifest.xml` and describe it |
 | `sdk_info`       | SDK, developer key, and device discovery summary          |
 | `device_list`    | Connect IQ device profiles (id, name, resolution)         |
+| `build_project`  | Compile a PRG via `monkey build` (SDK + key auto-detected) |
+| `run_project`    | Build + deploy to the simulator via `monkey run`          |
 
 Diagnostics come back as the same JSON array `monkey lint --json` emits.
 
@@ -49,7 +51,9 @@ diagnostics (`textDocument/publishDiagnostics` — parse errors plus every
 - `textDocument/documentSymbol` — class/method/field/enum outline
 - `textDocument/hover` — declaration signatures in markdown
 - `textDocument/definition` — same-file go-to-definition
+- `textDocument/references` — same-file find-references
 - `textDocument/completion` — keywords + declared names
+- `textDocument/formatting` — full-document format via `monkey-formatter`
 
 All ranges use UTF-16 positions per the LSP spec.
 

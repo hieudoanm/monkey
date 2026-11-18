@@ -456,6 +456,144 @@ pub fn completion(src: &str) -> Value {
     json!({"isIncomplete": false, "items": items})
 }
 
+// ---------- references ----------
+
+/// Collects every identifier *use* (not declaration) matching `name`.
+struct UseCollector {
+    name: String,
+    uses: Vec<Span>,
+}
+
+impl Visitor for UseCollector {
+    fn visit_expr(&mut self, e: &Expr) {
+        match e {
+            Expr::Ident(i) if i.text == self.name => self.uses.push(i.span),
+            _ => {}
+        }
+        // Default recursion into children.
+        match e {
+            Expr::Missing { .. }
+            | Expr::Literal(_)
+            | Expr::This { .. }
+            | Expr::Super { .. }
+            | Expr::Ident(_)
+            | Expr::Path { .. } => {}
+            Expr::Call { callee, args, .. } => {
+                self.visit_expr(callee);
+                for a in args {
+                    self.visit_expr(a);
+                }
+            }
+            Expr::Member { object, .. } => self.visit_expr(object),
+            Expr::Index { object, index, .. } => {
+                self.visit_expr(object);
+                self.visit_expr(index);
+            }
+            Expr::Unary { expr, .. } | Expr::Postfix { expr, .. } | Expr::Paren { expr, .. } => {
+                self.visit_expr(expr)
+            }
+            Expr::Binary { left, right, .. }
+            | Expr::Assign {
+                target: left,
+                value: right,
+                ..
+            } => {
+                self.visit_expr(left);
+                self.visit_expr(right);
+            }
+            Expr::Ternary {
+                cond, then, else_, ..
+            } => {
+                self.visit_expr(cond);
+                self.visit_expr(then);
+                self.visit_expr(else_);
+            }
+            Expr::New { args, type_, .. } => {
+                self.visit_type(type_);
+                for a in args {
+                    self.visit_expr(a);
+                }
+            }
+            Expr::Cast { expr, type_, .. } => {
+                self.visit_expr(expr);
+                self.visit_type(type_);
+            }
+            Expr::Array { elems, .. } => {
+                for e in elems {
+                    self.visit_expr(e);
+                }
+            }
+            Expr::Dict { entries, .. } => {
+                for (k, v) in entries {
+                    self.visit_expr(k);
+                    self.visit_expr(v);
+                }
+            }
+        }
+    }
+
+    fn visit_type(&mut self, t: &TypeRef) {
+        // `new Foo()` / `as Foo` type paths count as uses of the type name.
+        if let Some(last) = t.path.last() {
+            if last.text == self.name {
+                self.uses.push(last.span);
+            }
+        }
+    }
+}
+
+/// `textDocument/references` — same-file uses of the symbol at `offset`.
+/// Returns `Location[]`; includes the declaration when `include_decl`.
+pub fn references(src: &str, uri: &str, offset: usize, include_decl: bool) -> Value {
+    let Some((start, _)) = ident_at(src, offset) else {
+        return json!([]);
+    };
+    let word = src[start..]
+        .chars()
+        .take_while(|c| c.is_alphanumeric() || *c == '_')
+        .collect::<String>();
+    let decls = collect_decls(src);
+    let Some(decl) = decls.iter().find(|d| d.name == word) else {
+        return json!([]);
+    };
+    let parsed = monkey_parser::parse(src);
+    let mut c = UseCollector {
+        name: word.clone(),
+        uses: Vec::new(),
+    };
+    c.visit_source_file(&parsed.file);
+    let mut spans: Vec<Span> = c.uses;
+    spans.retain(|s| s.start as usize != decl.name_span.start as usize);
+    spans.sort_by_key(|s| s.start);
+    spans.dedup();
+    let mut locations: Vec<Value> = spans
+        .iter()
+        .map(|s| json!({"uri": uri, "range": range_json(src, *s)}))
+        .collect();
+    if include_decl {
+        locations.push(json!({"uri": uri, "range": range_json(src, decl.name_span)}));
+    }
+    json!(locations)
+}
+
+/// `textDocument/formatting` — full-document format as a single TextEdit.
+/// Returns `null` when the text is already formatted.
+pub fn formatting(src: &str, is_jungle: bool) -> Value {
+    let formatted = if is_jungle {
+        monkey_formatter::format_jungle(src, &Default::default())
+    } else {
+        monkey_formatter::format_monkeyc(src, &Default::default())
+    };
+    if formatted == src {
+        return Value::Null;
+    }
+    let end = position_at_byte(src, src.len());
+    json!([{
+        "range": {"start": {"line": 0, "character": 0}, "end": end},
+        "newText": formatted,
+    }])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -538,5 +676,25 @@ mod tests {
             .iter()
             .any(|c| c["name"] == "onUpdate" && c["kind"] == KIND_METHOD));
         assert!(children.iter().any(|c| c["name"] == "counter"));
+    }
+
+    #[test]
+    fn references_finds_uses() {
+        let src = "class A {\n  var c = 0;\n  function f() {\n    c = 1;\n    c = c + 1;\n  }\n}\n";
+        let off = src.rfind("c + 1").unwrap();
+        let refs = references(src, "file:///a.mc", off, true);
+        let arr = refs.as_array().unwrap();
+        // decl + 3 uses (c=1, c=c, and 'c' inside 'c + 1'... actually uses: 'c = 1', 'c =' lhs, 'c +' rhs)
+        assert!(arr.len() >= 3, "got {} locations", arr.len());
+    }
+
+    #[test]
+    fn formatting_returns_edit_or_null() {
+        let messy = "class A{\nfunction f()as Void{var x=1;}\n}\n";
+        let r = formatting(messy, false);
+        assert!(r.is_array());
+        assert!(r[0]["newText"].as_str().unwrap().contains("function f()"));
+        let clean = "var x = 1;\n";
+        assert!(formatting(clean, false).is_null());
     }
 }

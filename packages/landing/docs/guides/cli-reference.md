@@ -219,9 +219,14 @@ Runs a language server over stdio (LSP, full document sync). Capabilities:
 - **`textDocument/definition`** — same-file jump to a declaration.
 - **`textDocument/completion`** — Monkey C keywords plus all declared
   names in the document.
+- **`textDocument/references`** — same-file find-references for the symbol
+  under the cursor.
+- **`textDocument/formatting`** — full-document formatting via
+  `monkey-formatter` (returns no edit when already formatted).
 
 All positions are UTF-16-correct. Point your editor's language-server
-setting at `monkey lsp`; jungle documents only receive diagnostics.
+setting at `monkey lsp`; jungle documents get diagnostics, formatting,
+and (for symbols/hover/etc.) empty results since they are not Monkey C.
 
 ## Exit codes
 

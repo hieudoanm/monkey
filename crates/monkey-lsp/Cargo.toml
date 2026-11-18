@@ -8,6 +8,7 @@ description = "Minimal Monkey C language server: lint diagnostics over LSP"
 
 [dependencies]
 monkey-core = { path = "../monkey-core" }
+monkey-formatter = { path = "../monkey-formatter" }
 monkey-linter = { path = "../monkey-linter" }
 monkey-parser = { path = "../monkey-parser" }
 monkey-syntax = { path = "../monkey-syntax" }
