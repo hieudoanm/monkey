@@ -46,6 +46,7 @@ pub struct Token {
 
 /// Monkey C reserved words.
 pub const KEYWORDS: &[&str] = &[
+    "and",
     "as",
     "break",
     "case",
@@ -63,12 +64,17 @@ pub const KEYWORDS: &[&str] = &[
     "finally",
     "for",
     "function",
+    "has",
+    "hidden",
     "if",
     "import",
     "in",
     "instanceof",
+    "module",
     "new",
+    "not",
     "null",
+    "or",
     "private",
     "protected",
     "public",
@@ -76,6 +82,7 @@ pub const KEYWORDS: &[&str] = &[
     "super",
     "switch",
     "this",
+    "typedef",
     "throw",
     "true",
     "try",

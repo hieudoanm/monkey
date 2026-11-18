@@ -9,8 +9,11 @@ Part of the `monkey-*` toolchain workspace.
 
 - Content-Length framed JSON-RPC (standard LSP). `serve()` is the framed
   stdio loop; `Server::handle` is pure and unit-tested.
-- Full document sync only (`textDocumentSync: 1`); diagnostics computed by
-  `monkey-linter` on didOpen/didChange/didSave; didClose clears.
+- Incremental document sync (`textDocumentSync: 2`); diagnostics computed
+  by `monkey-linter` on didOpen/didChange/didSave; didClose clears.
+- `ProjectIndex` (`index.rs`) scans workspace `*.mc` files for
+  project-wide definition/references/rename; `toybox.rs` loads the SDK's
+  `api.debug.xml` for `Toybox.*` member completion.
 - Positions must be LSP-correct: 0-based line, UTF-16 `character` — see
   `position_at_byte` (byte→LSP) and `intel::offset_at` (LSP→byte).
 - Diagnostic severity mapping: error=1, warning=2, information=3, hint=4;

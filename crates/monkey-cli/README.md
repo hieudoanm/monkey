@@ -23,7 +23,7 @@ monkey doctor [--sdk <path>] [--key <path>] [path]
 monkey sdk    list|detect|info
 monkey device list|info <id>
 monkey project info [path]
-monkey test   [--device <id>] [path]     # check + build verification
+monkey test   [--device <id>] [--run] [--test name] [path]  # check+build; --run executes Toybox.Test
 monkey new    <dir> [--name X] [--type watchface] [--device id] [--min-api x.y.z]
 monkey build  [--device <id>] [--sdk <path>] [--key <path>] [path]
 monkey run    [--device <id>] [--sdk <path>] [--key <path>] [--no-simulator] [path]

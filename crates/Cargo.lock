@@ -57,6 +57,7 @@ dependencies = [
  "monkey-formatter",
  "monkey-linter",
  "monkey-parser",
+ "monkey-sdk",
  "monkey-syntax",
  "serde_json",
 ]

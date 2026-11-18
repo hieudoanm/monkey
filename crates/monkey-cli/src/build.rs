@@ -77,6 +77,12 @@ pub fn plan(
 
 /// Run `monkeyc` for the plan. Streams output; returns Err on failure.
 pub fn compile(plan: &BuildPlan) -> Result<(), String> {
+    compile_with(plan, false)
+}
+
+/// Compile; `unit_test` passes `monkeyc -t` so `Toybox.Test` tests are
+/// embedded for `monkeydo -t` execution.
+fn compile_with(plan: &BuildPlan, unit_test: bool) -> Result<(), String> {
     let monkeyc = plan.sdk_root.join("bin").join("monkeyc");
     if !monkeyc.is_file() {
         return Err(format!("monkeyc not found at {}", monkeyc.display()));
@@ -86,18 +92,22 @@ pub fn compile(plan: &BuildPlan) -> Result<(), String> {
     std::fs::create_dir_all(&out_dir)
         .map_err(|e| format!("cannot create {}: {}", out_dir.display(), e))?;
 
+    let mut args: Vec<String> = vec![
+        "-f".into(),
+        jungle.to_string_lossy().into_owned(),
+        "-d".into(),
+        plan.device.clone(),
+        "-o".into(),
+        plan.prg.to_string_lossy().into_owned(),
+        "-y".into(),
+        plan.key.to_string_lossy().into_owned(),
+        "-w".into(),
+    ];
+    if unit_test {
+        args.push("-t".into());
+    }
     let status = Command::new(&monkeyc)
-        .args([
-            "-f",
-            &jungle.to_string_lossy(),
-            "-d",
-            &plan.device,
-            "-o",
-            &plan.prg.to_string_lossy(),
-            "-y",
-            &plan.key.to_string_lossy(),
-            "-w",
-        ])
+        .args(&args)
         .current_dir(&plan.project.root)
         .stdin(Stdio::null())
         .status()
@@ -216,5 +226,83 @@ pub fn run(
             eprintln!("monkey: {}", e);
             1
         }
+    }
+}
+
+/// Deploy the PRG and run `Toybox.Test` tests via `monkeydo -t`.
+/// `test_name` selects a single test; `None` runs all tests the app exposes.
+pub fn test_run(
+    start: &str,
+    sdk: Option<&Path>,
+    key: Option<&Path>,
+    device: Option<&str>,
+    test_name: Option<&str>,
+    no_simulator: bool,
+) -> i32 {
+    let plan = match plan(start, sdk, key, device) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("monkey: {}", e);
+            return 1;
+        }
+    };
+    eprintln!(
+        "monkey: building {} ({}) with SDK {}",
+        plan.project.describe(),
+        plan.device,
+        plan.sdk_root.display()
+    );
+    if let Err(e) = compile_with(&plan, true) {
+        eprintln!("monkey: {}", e);
+        return 1;
+    }
+    println!("built {} (unit-test mode)", plan.prg.display());
+    if !no_simulator {
+        launch_simulator(&plan);
+        thread::sleep(Duration::from_millis(2500));
+    }
+    let monkeydo = plan.sdk_root.join("bin").join("monkeydo");
+    let mut cmd = Command::new(&monkeydo);
+    cmd.arg(&plan.prg).arg(&plan.device);
+    match test_name {
+        Some(name) => {
+            cmd.arg("-t").arg(name);
+        }
+        None => {
+            cmd.arg("-t");
+        }
+    }
+    // monkeydo -t exits non-zero even when all tests pass (known SDK quirk),
+    // so capture output and parse the RESULTS summary instead.
+    let output = match cmd.current_dir(&plan.project.root).output() {
+        Ok(o) => o,
+        Err(e) => {
+            eprintln!("monkey: failed to run {}: {}", monkeydo.display(), e);
+            return 1;
+        }
+    };
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    print!("{}", stdout);
+    eprint!("{}", stderr);
+
+    // Look for the RESULTS block: "PASSED (passed=N, failed=0, errors=0)" or
+    // "FAILED (...)". Fall back to scanning per-test PASS/FAIL lines.
+    let failed = stdout.contains("FAILED")
+        || stdout.lines().any(|l| l.trim_end().ends_with("FAIL"))
+        || stdout.lines().any(|l| l.contains(" ERROR"));
+    let ran_tests = stdout.contains("RESULTS") || stdout.contains("Executing test");
+    if ran_tests && !failed {
+        eprintln!("monkey: tests passed on {}", plan.device);
+        0
+    } else if ran_tests {
+        eprintln!("monkey: tests failed on {}", plan.device);
+        1
+    } else {
+        eprintln!(
+            "monkey: monkeydo produced no test output (exit {}) — is the simulator running?",
+            output.status
+        );
+        1
     }
 }

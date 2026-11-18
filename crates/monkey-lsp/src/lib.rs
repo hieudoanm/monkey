@@ -18,8 +18,9 @@ use serde_json::{json, Value};
 
 mod index;
 mod intel;
+mod toybox;
 
-use monkey_core::{Diagnostic, Severity};
+use monkey_core::{Diagnostic, Severity, Span};
 use monkey_linter::{lint_monkeyc, lint_text};
 
 /// Per-document state the server needs to compute diagnostics.
@@ -35,6 +36,8 @@ pub struct Server {
     index: Option<Rc<index::ProjectIndex>>,
     /// Rebuild the index on next use (any doc change invalidates it).
     index_dirty: bool,
+    /// Lazily-loaded Toybox API member database (from the SDK).
+    toybox: Option<Rc<Option<toybox::ToyboxDb>>>,
 }
 
 /// What [`Server::handle`] produced for one message.
@@ -72,13 +75,14 @@ impl Server {
                     "id": id,
                     "result": {
                         "capabilities": {
-                            "textDocumentSync": 1, // full sync
+                            "textDocumentSync": 2, // incremental
                             "diagnosticProvider": false,
                             "documentSymbolProvider": true,
                             "hoverProvider": true,
                             "definitionProvider": true,
                             "completionProvider": {"triggerCharacters": [".", " "]},
                             "documentFormattingProvider": true,
+                            "rangeFormattingProvider": true,
                             "referencesProvider": true,
                             "renameProvider": {"prepareProvider": true},
                             "signatureHelpProvider": {"triggerCharacters": ["(", ","]}
@@ -115,25 +119,40 @@ impl Server {
                     .and_then(|d| d.get("uri"))
                     .and_then(Value::as_str)
                     .unwrap_or("");
-                // Full sync: take the last content change's full text.
-                let text = params
-                    .get("contentChanges")
-                    .and_then(Value::as_array)
-                    .and_then(|cs| cs.last())
-                    .and_then(|c| c.get("text"))
-                    .and_then(Value::as_str)
-                    .map(str::to_string);
-                if let Some(text) = text {
-                    let lang = self
-                        .docs
-                        .get(uri)
-                        .map(|(l, _)| l.clone())
-                        .unwrap_or_default();
-                    self.docs
-                        .insert(uri.to_string(), (lang.clone(), text.clone()));
-                    self.index_dirty = true;
-                    out.notifications.push(publish(uri, &lang, &text));
+                // Incremental sync: apply each change in order. A change with
+                // `range` is a ranged edit; one without is a full-text replace.
+                let mut text = self
+                    .docs
+                    .get(uri)
+                    .map(|(_, t)| t.clone())
+                    .unwrap_or_default();
+                if let Some(changes) = params.get("contentChanges").and_then(Value::as_array) {
+                    for c in changes {
+                        let new = c.get("text").and_then(Value::as_str).unwrap_or("");
+                        let pos = |p: &str| -> Option<(u64, u64)> {
+                            let line = c.pointer(&format!("/range/{}/line", p))?.as_u64()?;
+                            let chr = c.pointer(&format!("/range/{}/character", p))?.as_u64()?;
+                            Some((line, chr))
+                        };
+                        match (pos("start"), pos("end")) {
+                            (Some((sl, sc)), Some((el, ec))) => {
+                                if let Some(u) = apply_text_edit(&text, sl, sc, el, ec, new) {
+                                    text = u;
+                                }
+                            }
+                            _ => text = new.to_string(),
+                        }
+                    }
                 }
+                let lang = self
+                    .docs
+                    .get(uri)
+                    .map(|(l, _)| l.clone())
+                    .unwrap_or_default();
+                self.docs
+                    .insert(uri.to_string(), (lang.clone(), text.clone()));
+                self.index_dirty = true;
+                out.notifications.push(publish(uri, &lang, &text));
             }
             "textDocument/didSave" | "textDocument/didClose" => {
                 let uri = params
@@ -178,7 +197,10 @@ impl Server {
                 let result = self.completion_result(&params);
                 out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
             }
-            "textDocument/formatting" => {
+            "textDocument/formatting" | "textDocument/rangeFormatting" => {
+                // The formatter is whole-document; for range requests we return
+                // the same single full-document edit (clients accept edits that
+                // extend beyond the requested range).
                 let result = self.formatting_result(&params);
                 out.response = Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
             }
@@ -229,17 +251,45 @@ impl Server {
         Some(intel::offset_at(src, line, col))
     }
 
-    fn hover_result(&self, params: &Value) -> Value {
-        let Some((_, lang, src)) = self.doc_text(params) else {
+    fn hover_result(&mut self, params: &Value) -> Value {
+        let Some((uri, lang, src)) = self.doc_text(params) else {
             return Value::Null;
         };
         if lang == "jungle" {
             return Value::Null;
         }
-        match self.offset_param(params, &src) {
-            Some(off) => intel::hover(&src, off).unwrap_or(Value::Null),
-            None => Value::Null,
+        let Some(off) = self.offset_param(params, &src) else {
+            return Value::Null;
+        };
+        if let Some(h) = intel::hover(&src, off) {
+            return h;
         }
+        // Cross-file fallback: resolve the identifier under the cursor to a
+        // project-wide declaration (preferring same-file decls).
+        let Some((word, a, b)) = self.word_at(&src, off) else {
+            return Value::Null;
+        };
+        let idx = self.project_index();
+        let decls = idx.find_decls(&word);
+        let Some((f, d)) = decls
+            .iter()
+            .find(|(f, _)| f.uri == uri)
+            .or_else(|| decls.first())
+        else {
+            return Value::Null;
+        };
+        let extra = if f.uri == uri {
+            None
+        } else {
+            Some(format!(
+                " — declared in `{}`",
+                f.path
+                    .file_name()
+                    .map(|n| n.to_string_lossy())
+                    .unwrap_or_default()
+            ))
+        };
+        intel::decl_hover(d, Span::new(a as u32, b as u32), &src, extra.as_deref())
     }
 
     /// Lazily build (or reuse) the project symbol index, overlaying the
@@ -322,7 +372,6 @@ impl Server {
         if lang == "jungle" {
             return json!([]);
         }
-        let _ = uri;
         let include_decl = params
             .get("context")
             .and_then(|c| c.get("includeDeclaration"))
@@ -335,9 +384,36 @@ impl Server {
             return json!([]);
         };
         let idx = self.project_index();
+        // Resolve the target decl (prefer same-file) to detect member kinds.
+        let target = idx
+            .find_decls(&word)
+            .into_iter()
+            .find(|(f, _)| f.uri == uri)
+            .or_else(|| idx.find_decls(&word).into_iter().next());
+        let (member, parent) = target
+            .map(|(_, d)| {
+                (
+                    matches!(d.kind, "method" | "field" | "enum-member"),
+                    d.parent.clone(),
+                )
+            })
+            .unwrap_or((false, None));
         let mut locs: Vec<Value> = Vec::new();
         for f in &idx.files {
-            for span in intel::uses_in(&f.src, &word) {
+            let cs = if member {
+                // Bare-ident uses only count inside the declaring class;
+                // files without it get an empty span (member/path uses
+                // still count everywhere).
+                Some(
+                    parent
+                        .as_deref()
+                        .and_then(|p| intel::class_span(&f.src, p))
+                        .unwrap_or(Span::new(0, 0)),
+                )
+            } else {
+                None
+            };
+            for span in intel::uses_in_mode(&f.src, &word, member, cs) {
                 locs.push(json!({
                     "uri": f.uri,
                     "range": {
@@ -368,7 +444,6 @@ impl Server {
         if lang == "jungle" {
             return Value::Null;
         }
-        let _ = uri;
         let new_name = params.get("newName").and_then(Value::as_str).unwrap_or("");
         if !intel::valid_ident(new_name) {
             return Value::Null;
@@ -380,13 +455,37 @@ impl Server {
             return Value::Null;
         };
         let idx = self.project_index();
-        if idx.find_decls(&word).is_empty() {
+        let found = idx.find_decls(&word);
+        if found.is_empty() {
             return Value::Null;
         }
+        // Member-aware rename: `.name`/path uses + decl-site edits.
+        let target = found
+            .iter()
+            .find(|(f, _)| f.uri == uri)
+            .or_else(|| found.first());
+        let (member, parent) = target
+            .map(|(_, d)| {
+                (
+                    matches!(d.kind, "method" | "field" | "enum-member"),
+                    d.parent.clone(),
+                )
+            })
+            .unwrap_or((false, None));
         let mut changes = serde_json::Map::new();
         for f in &idx.files {
             let mut edits: Vec<Value> = Vec::new();
-            for span in intel::uses_in(&f.src, &word) {
+            let cs = if member {
+                Some(
+                    parent
+                        .as_deref()
+                        .and_then(|p| intel::class_span(&f.src, p))
+                        .unwrap_or(Span::new(0, 0)),
+                )
+            } else {
+                None
+            };
+            for span in intel::uses_in_mode(&f.src, &word, member, cs) {
                 edits.push(json!({
                     "range": {
                         "start": position_at_byte(&f.src, span.start as usize),
@@ -564,6 +663,9 @@ impl Server {
                 }
             }
         }
+        if members.is_empty() {
+            members = self.toybox_members(base);
+        }
         let items: Vec<Value> = members
             .iter()
             .map(|(name, kind)| {
@@ -576,6 +678,52 @@ impl Server {
             })
             .collect();
         json!({"isIncomplete": false, "items": items})
+    }
+
+    /// Toybox API members for `base.` — handles `Toybox.`, `Toybox.Math.`,
+    /// and bare `Math.` (post-`using`) forms.
+    fn toybox_members(&mut self, base: &str) -> Vec<(String, &'static str)> {
+        if self.toybox.is_none() {
+            self.toybox = Some(Rc::new(toybox::ToyboxDb::load()));
+        }
+        let Some(rc) = self.toybox.as_ref() else {
+            return Vec::new();
+        };
+        let Some(db) = rc.as_ref() else {
+            return Vec::new();
+        };
+        // Candidate owner paths, most specific first.
+        let candidates = [
+            format!("Toybox.{}", base),
+            base.to_string(),
+            format!("Toybox.{}.{}", base, base),
+        ];
+        for owner in &candidates {
+            let ms = db.members_of(owner);
+            if !ms.is_empty() {
+                return ms
+                    .into_iter()
+                    .map(|m| {
+                        // Toybox constants are UPPER_CASE; the rest are methods.
+                        let kind = if m.chars().all(|c| !c.is_lowercase()) {
+                            "field"
+                        } else {
+                            "method"
+                        };
+                        (m, kind)
+                    })
+                    .collect();
+            }
+        }
+        // `Toybox.` itself → module names.
+        if base == "Toybox" {
+            return db
+                .children_of("Toybox")
+                .into_iter()
+                .map(|m| (m, "module"))
+                .collect();
+        }
+        Vec::new()
     }
 }
 
@@ -651,6 +799,28 @@ fn to_lsp(src: &str, d: &Diagnostic) -> Value {
         "source": "monkey",
         "message": d.message,
     })
+}
+
+/// Apply an incremental LSP text edit (UTF-16 line/character range) to `src`.
+/// Returns `None` if offsets can't be resolved.
+fn apply_text_edit(
+    src: &str,
+    sline: u64,
+    schar: u64,
+    eline: u64,
+    echar: u64,
+    new_text: &str,
+) -> Option<String> {
+    let start = intel::offset_at(src, sline as usize, schar as usize);
+    let end = intel::offset_at(src, eline as usize, echar as usize);
+    if start > end || end > src.len() {
+        return None;
+    }
+    let mut out = String::with_capacity(src.len() + new_text.len());
+    out.push_str(&src[..start]);
+    out.push_str(new_text);
+    out.push_str(&src[end..]);
+    Some(out)
 }
 
 /// UTF-8 byte offset → LSP position (0-based line, UTF-16 character).
@@ -744,7 +914,7 @@ mod tests {
         let out = s.handle(&msg("initialize", json!({}), Some(1)));
         assert_eq!(
             out.response.unwrap()["result"]["capabilities"]["textDocumentSync"],
-            1
+            2 // incremental
         );
     }
 

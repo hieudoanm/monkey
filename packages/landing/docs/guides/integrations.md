@@ -64,8 +64,9 @@ All ranges use UTF-16 positions per the LSP spec.
 Configure your editor to launch `monkey lsp` as the Monkey C language
 server (VS Code: `monkeyC`-style custom LSP client or a generic LSP
 extension; Zed: a `language_servers` entry pointing at the binary). The
-built-in VS Code lint provider (`monkey lint --stdin`) remains the
-zero-config option.
+built-in VS Code lint provider uses a persistent `monkey lint --serve`
+process (one spawn, frame protocol) with automatic fallback to
+`lint --stdin` — zero-config either way.
 
 ## Suppressing diagnostics
 

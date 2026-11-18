@@ -29,6 +29,7 @@ use monkey_core::{
 };
 
 mod build;
+mod manifest_check;
 mod scaffold;
 use monkey_formatter::{format_source, FormatOptions, LineEnding};
 use monkey_linter::{lint_monkeyc_config, lint_text_config, LintConfig};
@@ -160,6 +161,55 @@ fn lint_config(start: Option<&str>) -> LintConfig {
         .unwrap_or_default()
 }
 
+/// Persistent stdin lint loop for `lint --serve`.
+fn lint_serve() -> ExitCode {
+    use std::io::{BufRead, Write};
+    let stdin = io::stdin();
+    let mut reader = stdin.lock();
+    let stdout = io::stdout();
+    let mut out = stdout.lock();
+
+    loop {
+        let mut label = String::new();
+        if reader.read_line(&mut label).unwrap_or(0) == 0 {
+            return ExitCode::SUCCESS; // EOF
+        }
+        let label = label.trim_end_matches(['\n', '\r']).to_string();
+        let mut len_line = String::new();
+        if reader.read_line(&mut len_line).unwrap_or(0) == 0 {
+            return ExitCode::SUCCESS;
+        }
+        let Ok(len) = len_line.trim().parse::<usize>() else {
+            return ExitCode::from(2);
+        };
+        let mut buf = vec![0u8; len];
+        if reader.read_exact(&mut buf).is_err() {
+            return ExitCode::SUCCESS;
+        }
+        let src = String::from_utf8_lossy(&buf).into_owned();
+
+        let config = lint_config(None);
+        let is_monkeyc = !label.ends_with(".jungle");
+        let mut diags = if is_monkeyc {
+            lint_monkeyc_config(&src, &label, &config)
+        } else {
+            let mut d = Vec::new();
+            lint_text_config(&src, &mut d, &config);
+            d
+        };
+        diags.sort_by_key(|d| d.span.map(|s| s.start).unwrap_or(u32::MAX));
+        let files = [FileDiagnostics {
+            path: &label,
+            src: &src,
+            diagnostics: &diags,
+        }];
+        let json = diagnostics_json_all(&files);
+        if writeln!(out, "{}", json).is_err() || out.flush().is_err() {
+            return ExitCode::SUCCESS;
+        }
+    }
+}
+
 fn read_stdin() -> String {
     let mut buf = String::new();
     let _ = io::stdin().read_to_string(&mut buf);
@@ -259,6 +309,16 @@ fn cmd_lint(args: &[String], with_format_check: bool) -> ExitCode {
     let json_out = args.iter().any(|a| a == "--json");
     let sarif_out = args.iter().any(|a| a == "--sarif");
     let use_stdin = args.iter().any(|a| a == "--stdin");
+    let serve = args.iter().any(|a| a == "--serve");
+
+    // `lint --serve` — persistent lint server for editor integrations.
+    // Frame protocol (all LF-terminated headers, then raw bytes):
+    //   <label>\n<len>\n<source bytes>   →   <json array>\n
+    // One JSON diagnostics array per request, same shape as `lint --stdin`.
+    // Keeps the process alive so editors don't spawn-per-keystroke.
+    if serve {
+        return lint_serve();
+    }
 
     // `lint --stdin [--json|--sarif] [label]` — lint source from stdin so
     // editor integrations can check unsaved buffers. The first positional
@@ -719,8 +779,30 @@ fn cmd_project(args: &[String]) -> ExitCode {
                 ExitCode::from(1)
             }
         },
+        "check" => match monkey_project::discover_from(&start) {
+            Some(p) => {
+                let src = fs::read_to_string(&p.manifest_path).unwrap_or_default();
+                let mstr = p.manifest_path.to_string_lossy().to_string();
+                let diags = manifest_check::validate(&p);
+                if diags.is_empty() {
+                    println!("{}: manifest OK", p.describe());
+                    ExitCode::SUCCESS
+                } else {
+                    print_diagnostics(&mstr, &src, &diags);
+                    eprintln!("monkey: {} finding(s)", diags.len());
+                    ExitCode::from(1)
+                }
+            }
+            None => {
+                eprintln!("monkey: no project found from {}", start);
+                ExitCode::from(1)
+            }
+        },
         other => {
-            eprintln!("monkey: unknown project subcommand '{}' (info)", other);
+            eprintln!(
+                "monkey: unknown project subcommand '{}' (info|check)",
+                other
+            );
             ExitCode::from(2)
         }
     }
@@ -780,14 +862,16 @@ fn cmd_new(args: &[String]) -> ExitCode {
     }
 }
 
-/// `monkey test [--device <id>] [--sdk <path>] [--key <path>] [path]`
+/// `monkey test [--device <id>] [--sdk <path>] [--key <path>]
+///              [--run] [--test <name>] [--no-simulator] [path]`
 ///
-/// Project verification: `monkey check` over the project's Monkey C and
-/// Jungle files, then a full `monkey build`. Runtime `Toybox.Test` execution
-/// inside the simulator is not yet supported — this is the static +
-/// compile-time gate for CI.
+/// Default: `monkey check` + `monkey build` verification gate (CI-friendly).
+/// With `--run`: also deploys the PRG and executes `Toybox.Test` tests in the
+/// simulator via `monkeydo -t` (`--test <name>` selects a single test).
 fn cmd_test(args: &[String]) -> ExitCode {
-    let (flags, rest) = take_flags(args, &["--sdk", "--key", "--device"]);
+    let (flags, rest) = take_flags(args, &["--sdk", "--key", "--device", "--test"]);
+    let run_tests = args.iter().any(|a| a == "--run");
+    let no_simulator = args.iter().any(|a| a == "--no-simulator");
     let start = positional(&rest)
         .first()
         .cloned()
@@ -803,7 +887,19 @@ fn cmd_test(args: &[String]) -> ExitCode {
     let sdk = flag_value(&flags, "--sdk").map(PathBuf::from);
     let key = flag_value(&flags, "--key").map(PathBuf::from);
     let device = flag_value(&flags, "--device");
-    let code = build::build(&start, sdk.as_deref(), key.as_deref(), device);
+    let test_name = flag_value(&flags, "--test");
+    let code = if run_tests {
+        build::test_run(
+            &start,
+            sdk.as_deref(),
+            key.as_deref(),
+            device,
+            test_name,
+            no_simulator,
+        )
+    } else {
+        build::build(&start, sdk.as_deref(), key.as_deref(), device)
+    };
     ExitCode::from(code as u8)
 }
 
