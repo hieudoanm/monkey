@@ -6,6 +6,7 @@
 
 mod ast;
 mod registry;
+mod suppression;
 mod text;
 
 pub use monkey_core::Diagnostic;
@@ -24,6 +25,7 @@ pub fn lint_monkeyc(src: &str, _path: &str) -> Vec<Diagnostic> {
     // Lexical + parse diagnostics produced by the shared pipeline.
     diags.extend(parsed.diagnostics);
     ast::lint_ast(src, &parsed.file, &mut diags);
+    suppression::filter(src, &mut diags, 0);
     diags
 }
 
@@ -34,12 +36,15 @@ pub fn lint_parsed(src: &str, file: &SourceFile, syntax_diags: Vec<Diagnostic>) 
     lint_text(src, &mut diags);
     diags.extend(syntax_diags);
     ast::lint_ast(src, file, &mut diags);
+    suppression::filter(src, &mut diags, 0);
     diags
 }
 
 /// Text-level rules that also apply to Jungle files.
 pub fn lint_text(src: &str, diags: &mut Vec<Diagnostic>) {
+    let since = diags.len();
     text::lint_text(src, diags);
+    suppression::filter(src, diags, since);
 }
 
 #[cfg(test)]

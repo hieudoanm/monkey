@@ -7,8 +7,9 @@ parsing is intentional — no clap).
 ## Conventions
 
 - Subcommands: `format`, `lint`, `check`, `tokens`, `parse`, `doctor`, `sdk`,
-  `device`, `project`, `build`, `run`. Keep names stable — editor integrations
-  and CI invoke them.
+  `device`, `project`, `build`, `run`, `mcp`, `lsp`. Keep names stable —
+  editor integrations and CI invoke them. `mcp`/`lsp` delegate to the
+  `monkey-mcp`/`monkey-lsp` crates (stdio servers; keep them dependency-light).
 - `build`/`run` (`src/build.rs`) orchestrate the official SDK exactly like the
   editor extensions: `monkeyc -f <jungle> -d <device> -o bin/<name>.prg -y
   <key> -w`, then `connectiq` + `monkeydo <prg> <device>`. Device selection:

@@ -48,6 +48,11 @@ monkey lint --json [paths...]    # JSON array of diagnostics
 monkey lint --sarif [paths...]   # SARIF 2.1.0 log
 ```
 
+Diagnostics can be suppressed inline with `monkey-ignore` comments —
+`// monkey-ignore` (or `# monkey-ignore` in Jungle) on the same line, or alone
+on the line above to cover the next line. Append rule codes to suppress only
+those: `// monkey-ignore unused-variable,PARSE001`.
+
 Rules (`monkey-linter` registry):
 
 | Code | Severity | Category | Description |
@@ -165,6 +170,58 @@ Builds, launches the Connect IQ simulator (`connectiq`), waits for it to boot,
 then deploys the PRG with `monkeydo <prg> <device>` — the same flow as the
 editor runtime preview. `--no-simulator` skips the simulator launch (useful
 when it's already running or deploying to a physical device).
+
+## mcp
+
+```bash
+monkey mcp
+```
+
+Runs an MCP (Model Context Protocol) server over stdio — newline-delimited
+JSON-RPC, protocol `2024-11-05`. Agents and editors can call Monkey
+toolchain tools without shelling out:
+
+| Tool | Description |
+|---|---|
+| `lint_source` | Lint source text (`path` selects `.mc` vs `.jungle`) |
+| `lint_file` | Lint a file on disk |
+| `parse_source` | Monkey C parse/lex diagnostics |
+| `format_source` | Format source text |
+| `project_info` | Discover `monkey.jungle` + `manifest.xml` project |
+| `sdk_info` | SDK/key/device discovery summary |
+| `device_list` | Connect IQ device profiles |
+
+Example MCP client config:
+
+```json
+{
+  "mcpServers": {
+    "monkey": { "command": "monkey", "args": ["mcp"] }
+  }
+}
+```
+
+## lsp
+
+```bash
+monkey lsp
+```
+
+Runs a language server over stdio (LSP, full document sync). Capabilities:
+
+- **Diagnostics** — `monkey-linter` rules, lex/parse errors, and
+  `monkey-ignore` suppressions published as
+  `textDocument/publishDiagnostics` on open/change/save/close.
+- **`textDocument/documentSymbol`** — hierarchical outline of classes,
+  methods, fields, enums, and functions.
+- **`textDocument/hover`** — markdown signature/kind for the declaration
+  under the cursor (params and enum members included).
+- **`textDocument/definition`** — same-file jump to a declaration.
+- **`textDocument/completion`** — Monkey C keywords plus all declared
+  names in the document.
+
+All positions are UTF-16-correct. Point your editor's language-server
+setting at `monkey lsp`; jungle documents only receive diagnostics.
 
 ## Exit codes
 

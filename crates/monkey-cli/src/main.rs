@@ -12,6 +12,8 @@
 //!   monkey project info [path]
 //!   monkey build  [--device <id>] [--sdk <path>] [--key <path>] [path]
 //!   monkey run    [--device <id>] [--sdk <path>] [--key <path>] [--no-simulator] [path]
+//!   monkey mcp    Run the MCP server (stdio JSON-RPC) for editor/agent tools
+//!   monkey lsp    Run the language server (stdio LSP) publishing lint diagnostics
 //!
 //! Paths may be files or directories; directories are searched recursively
 //! for `*.mc` and `*.jungle` files.
@@ -48,6 +50,8 @@ COMMANDS:
     project   Project info: info [path]
     build     Compile a Connect IQ project to bin/<name>.prg
     run       Build, start the simulator, and launch the app
+    mcp       MCP server over stdio (tools for agents/editors)
+    lsp       Language server over stdio (lint diagnostics)
 
 FORMAT OPTIONS:
     --check            Report which files would change (default for files)
@@ -86,6 +90,8 @@ fn main() -> ExitCode {
         "project" => cmd_project(&args[1..]),
         "build" => cmd_build(&args[1..], false),
         "run" => cmd_build(&args[1..], true),
+        "mcp" => cmd_mcp(),
+        "lsp" => cmd_lsp(),
         "-h" | "--help" | "help" => {
             print!("{}", USAGE);
             ExitCode::SUCCESS
@@ -717,4 +723,26 @@ fn cmd_build(args: &[String], do_run: bool) -> ExitCode {
         build::build(&start, sdk.as_deref(), key.as_deref(), device)
     };
     ExitCode::from(code as u8)
+}
+
+/// `monkey mcp` — MCP server over stdio for agent/editor integrations.
+fn cmd_mcp() -> ExitCode {
+    match monkey_mcp::serve() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("monkey mcp: {}", e);
+            ExitCode::from(1)
+        }
+    }
+}
+
+/// `monkey lsp` — minimal language server publishing lint diagnostics.
+fn cmd_lsp() -> ExitCode {
+    match monkey_lsp::serve() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("monkey lsp: {}", e);
+            ExitCode::from(1)
+        }
+    }
 }
