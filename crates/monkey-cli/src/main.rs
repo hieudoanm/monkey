@@ -57,6 +57,7 @@ COMMANDS:
     run       Build, start the simulator, and launch the app
     mcp       MCP server over stdio (tools for agents/editors)
     lsp       Language server over stdio (lint diagnostics)
+    version   Print version and build timestamp (--version, -V)
 
 FORMAT OPTIONS:
     --check            Report which files would change (default for files)
@@ -101,6 +102,14 @@ fn main() -> ExitCode {
         "lsp" => cmd_lsp(),
         "-h" | "--help" | "help" => {
             print!("{}", USAGE);
+            ExitCode::SUCCESS
+        }
+        "-V" | "--version" | "version" => {
+            println!(
+                "monkey {} (build {})",
+                env!("CARGO_PKG_VERSION"),
+                env!("MONKEY_BUILD_TS")
+            );
             ExitCode::SUCCESS
         }
         other => {

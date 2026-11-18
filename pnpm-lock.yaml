@@ -201,6 +201,10 @@ importers:
         version: 2.11.12
 
   packages/extensions/vscode:
+    dependencies:
+      vscode-languageclient:
+        specifier: ^11.0.0
+        version: 11.0.0
     devDependencies:
       '@eslint/js':
         specifier: 10.0.1
@@ -3289,6 +3293,23 @@ packages:
         optional: true
       jsdom:
         optional: true
+
+  vscode-jsonrpc@10.0.0:
+    resolution: {integrity: sha512-USSfxg0vDIpTQqlQBGxF3mBARyoS8cU7LHLpbYNh6dOJt32dlskxPWB0Irrh5TllTmyf7oNLAvqDqzklbwwnpA==}
+    engines: {node: '>=14.17.0'}
+
+  vscode-languageclient@11.0.0:
+    resolution: {integrity: sha512-kVyeGLfyd1M74PbMNPfFkgRnhMYgnt6YGc5uXr/tNMzCpfZ0wFtfiqmqX1M05kkdNgV0HSozEUPvgggJbyIAYw==}
+    engines: {vscode: ^1.91.0}
+
+  vscode-languageserver-protocol@3.18.5:
+    resolution: {integrity: sha512-FW4fBMzZ99N8xeob4py0l050wgCoRgTpEq5Xcsb9lM1bc29UKGR/wSV+4knaqFxssFHajy7OzNiKP/m3U1ZEuA==}
+
+  vscode-languageserver-textdocument@1.0.16:
+    resolution: {integrity: sha512-qeNEuOi9a3qkqRf7Gfez2WL2VwlBTLCNekHBGO9kxPVUp9XuY15yfTJ9jwvOwKI0I2MhUUfZq95NSp+LK1CLQg==}
+
+  vscode-languageserver-types@3.18.5:
+    resolution: {integrity: sha512-kPd6+JQNz3HMJvjKlqUxERSlZHAntl/aGpsk7ImwIh0ewDKDcjgAEyVSYciPiOJD3ftbK9IrfiqUeTZLSbCizw==}
 
   which-boxed-primitive@1.1.1:
     resolution: {integrity: sha512-TbX3mj8n0odCBFVlY8AxkqcHASw3L60jIuF8jFP78az3C2YhmGvqbHBpAjTRH2/xqYunrJ9g1jSyjCjpoWzIAA==}
@@ -6417,6 +6438,24 @@ snapshots:
       '@types/node': 26.6.6
     transitivePeerDependencies:
       - msw
+
+  vscode-jsonrpc@10.0.0: {}
+
+  vscode-languageclient@11.0.0:
+    dependencies:
+      minimatch: 11.0.9
+      semver: 7.8.6
+      vscode-languageserver-protocol: 3.18.5
+      vscode-languageserver-textdocument: 1.0.16
+
+  vscode-languageserver-protocol@3.18.5:
+    dependencies:
+      vscode-jsonrpc: 10.0.0
+      vscode-languageserver-types: 3.18.5
+
+  vscode-languageserver-textdocument@1.0.16: {}
+
+  vscode-languageserver-types@3.18.5: {}
 
   which-boxed-primitive@1.1.1:
     dependencies:
