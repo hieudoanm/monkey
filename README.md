@@ -12,6 +12,32 @@ development:
 - Formats, lints, parses, and checks Connect IQ projects.
 - Delegates building and simulation to the official Garmin SDK.
 
+## Install
+
+One command installs the CLI, the VS Code extension, and the Zed extension
+from the [latest release](https://github.com/hieudoanm/monkey/releases/tag/latest):
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/hieudoanm/monkey/master/scripts/install.sh)          # everything
+bash <(curl -fsSL https://raw.githubusercontent.com/hieudoanm/monkey/master/scripts/install.sh) --cli-only
+bash <(curl -fsSL https://raw.githubusercontent.com/hieudoanm/monkey/master/scripts/install.sh) --editor-only
+bash <(curl -fsSL https://raw.githubusercontent.com/hieudoanm/monkey/master/scripts/install.sh) --zed-only
+```
+
+Or install each piece manually:
+
+- **CLI**: download the `cli-monkey-*` binary for your platform from the
+  [latest release](https://github.com/hieudoanm/monkey/releases/tag/latest) and
+  put it on your `PATH` (e.g. `~/.local/bin`), or build from source:
+  `cargo install --path crates/monkey-cli`.
+- **VS Code**: install `extension-monkey-c.vsix` from the same release, or
+  build with `pnpm run package` inside `packages/extensions/vscode`.
+- **Zed**: install `extension-monkey-c-zed.zip` from the same release, or add
+  the extension as a dev extension (see `packages/extensions/zed/README.md`).
+
+Verify your setup with `monkey doctor` — it checks the SDK, developer key,
+device profiles, and project discovery.
+
 ## What's in this repo
 
 - **[`crates/`](crates/)** — the Rust toolchain workspace:
@@ -30,8 +56,6 @@ development:
 ## CLI quick start
 
 ```bash
-cargo install --path crates/monkey-cli   # or download a release binary
-
 monkey format --check .     # report files that would be reformatted
 monkey format --write .     # format in place
 monkey lint .               # lint diagnostics
@@ -45,12 +69,6 @@ monkey format --stdin       # editor/pipe mode: stdin → stdout
 See the [CLI reference](packages/landing/docs/guides/cli-reference.md) for details.
 
 ## Editor extensions
-
-- **VS Code**: install `extension-monkey-c.vsix` from the
-  [latest release](https://github.com/hieudoanm/monkey/releases/tag/latest), or
-  build with `pnpm run package` inside `packages/extensions/vscode`.
-- **Zed**: install `extension-monkey-c-zed.zip` from the same release, or add
-  the extension as a dev extension (see `packages/extensions/zed/README.md`).
 
 Both extensions provide:
 

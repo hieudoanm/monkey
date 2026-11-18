@@ -18,9 +18,30 @@ pub struct BuildPlan {
     pub project: Project,
     pub sdk_root: PathBuf,
     pub device: String,
-    pub key: PathBuf,
+    /// `None` for barrel projects (barrels are unsigned/device-agnostic).
+    pub key: Option<PathBuf>,
     /// `bin/<project-dir-name>.prg`
     pub prg: PathBuf,
+    /// Monkey Barrel project (`<iq:barrel>` manifest) → `barrelbuild`.
+    pub barrel: bool,
+}
+
+/// True when the project's manifest declares `<iq:barrel>` rather than
+/// `<iq:application>`. `<iq:barrels>` (the dependency section inside an app
+/// manifest) must not match — the char after `barrel` decides.
+fn is_barrel(project: &Project) -> bool {
+    std::fs::read_to_string(&project.manifest_path)
+        .map(|s| {
+            ["<iq:barrel", "<barrel"].iter().any(|needle| {
+                s.match_indices(needle).any(|(i, n)| {
+                    s[i + n.len()..]
+                        .chars()
+                        .next()
+                        .is_none_or(|c| c == ' ' || c == '>' || c == '/' || c == '\n' || c == '\t')
+                })
+            })
+        })
+        .unwrap_or(false)
 }
 
 /// Pick the target device: explicit flag → `MONKEYC_DEVICE` env → first
@@ -54,10 +75,23 @@ pub fn plan(
     let sdk = find_sdk(sdk_flag).ok_or_else(|| {
         "Connect IQ SDK not found — install it or pass --sdk / MONKEYC_SDK_PATH".to_string()
     })?;
-    let key = find_developer_key(key_flag).ok_or_else(|| {
-        "developer key not found — pass --key or set MONKEYC_DEVELOPER_KEY".to_string()
-    })?;
-    let device = pick_device(&project, device_flag)?;
+    let barrel = is_barrel(&project);
+    // Barrels are unsigned and device-agnostic: no key, no device needed.
+    let key = if barrel {
+        find_developer_key(key_flag)
+    } else {
+        Some(find_developer_key(key_flag).ok_or_else(|| {
+            "developer key not found — pass --key or set MONKEYC_DEVELOPER_KEY".to_string()
+        })?)
+    };
+    let device = if barrel {
+        device_flag
+            .map(str::to_string)
+            .or_else(|| project.products().first().cloned())
+            .unwrap_or_else(|| "fr55".to_string())
+    } else {
+        pick_device(&project, device_flag)?
+    };
 
     let name = project
         .root
@@ -72,6 +106,7 @@ pub fn plan(
         device,
         key,
         prg,
+        barrel,
     })
 }
 
@@ -83,14 +118,47 @@ pub fn compile(plan: &BuildPlan) -> Result<(), String> {
 /// Compile; `unit_test` passes `monkeyc -t` so `Toybox.Test` tests are
 /// embedded for `monkeydo -t` execution.
 fn compile_with(plan: &BuildPlan, unit_test: bool) -> Result<(), String> {
+    compile_extra(plan, unit_test, &[])
+}
+
+/// Compile with extra monkeyc flags (e.g. `-e` for `.iq` packaging).
+/// Barrel projects route to `barrelbuild` instead (no key/device).
+fn compile_extra(plan: &BuildPlan, unit_test: bool, extra: &[&str]) -> Result<(), String> {
+    let out_dir = plan.prg.parent().unwrap().to_path_buf();
+    std::fs::create_dir_all(&out_dir)
+        .map_err(|e| format!("cannot create {}: {}", out_dir.display(), e))?;
+    let jungle = plan.project.jungle_path.clone();
+
+    if plan.barrel {
+        let tool = plan.sdk_root.join("bin").join("barrelbuild");
+        if !tool.is_file() {
+            return Err(format!("barrelbuild not found at {}", tool.display()));
+        }
+        let status = Command::new(&tool)
+            .arg("-f")
+            .arg(&jungle)
+            .arg("-o")
+            .arg(&plan.prg)
+            .arg("-w")
+            .current_dir(&plan.project.root)
+            .stdin(Stdio::null())
+            .status()
+            .map_err(|e| format!("failed to run {}: {}", tool.display(), e))?;
+        return if status.success() {
+            Ok(())
+        } else {
+            Err(format!("barrelbuild exited with {}", status))
+        };
+    }
+
     let monkeyc = plan.sdk_root.join("bin").join("monkeyc");
     if !monkeyc.is_file() {
         return Err(format!("monkeyc not found at {}", monkeyc.display()));
     }
-    let jungle = plan.project.jungle_path.clone();
-    let out_dir = plan.prg.parent().unwrap().to_path_buf();
-    std::fs::create_dir_all(&out_dir)
-        .map_err(|e| format!("cannot create {}: {}", out_dir.display(), e))?;
+    let key = plan
+        .key
+        .as_ref()
+        .ok_or_else(|| "developer key required for app builds".to_string())?;
 
     let mut args: Vec<String> = vec![
         "-f".into(),
@@ -100,9 +168,10 @@ fn compile_with(plan: &BuildPlan, unit_test: bool) -> Result<(), String> {
         "-o".into(),
         plan.prg.to_string_lossy().into_owned(),
         "-y".into(),
-        plan.key.to_string_lossy().into_owned(),
+        key.to_string_lossy().into_owned(),
         "-w".into(),
     ];
+    args.extend(extra.iter().map(|s| s.to_string()));
     if unit_test {
         args.push("-t".into());
     }
@@ -181,6 +250,93 @@ pub fn build(start: &str, sdk: Option<&Path>, key: Option<&Path>, device: Option
         }
         Err(e) => {
             eprintln!("monkey: {}", e);
+            1
+        }
+    }
+}
+
+/// `monkey export` — package the project as a `.iq` application bundle via
+/// `monkeyc -e` (the file the Garmin store / Express consumes).
+pub fn export(start: &str, sdk: Option<&Path>, key: Option<&Path>, device: Option<&str>) -> i32 {
+    let plan = match plan(start, sdk, key, device) {
+        Ok(mut p) => {
+            // .iq output instead of .prg.
+            p.prg = p.prg.with_extension("iq");
+            p
+        }
+        Err(e) => {
+            eprintln!("monkey: {}", e);
+            return 1;
+        }
+    };
+    eprintln!(
+        "monkey: exporting {} ({}) with SDK {}",
+        plan.project.describe(),
+        plan.device,
+        plan.sdk_root.display()
+    );
+    match compile_extra(&plan, false, &["-e"]) {
+        Ok(()) => {
+            println!("{}", plan.prg.display());
+            0
+        }
+        Err(e) => {
+            eprintln!("monkey: {}", e);
+            1
+        }
+    }
+}
+
+/// `monkey debug` — build, then launch the SDK's Monkeybrains debugger
+/// (`mdd`) against the PRG + its generated `.debug.xml`, detached like the
+/// simulator launch.
+pub fn debug(start: &str, sdk: Option<&Path>, key: Option<&Path>, device: Option<&str>) -> i32 {
+    let plan = match plan(start, sdk, key, device) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("monkey: {}", e);
+            return 1;
+        }
+    };
+    if plan.barrel {
+        eprintln!("monkey: barrels cannot be debugged (no executable)");
+        return 1;
+    }
+    eprintln!(
+        "monkey: building {} ({}) with SDK {}",
+        plan.project.describe(),
+        plan.device,
+        plan.sdk_root.display()
+    );
+    if let Err(e) = compile(&plan) {
+        eprintln!("monkey: {}", e);
+        return 1;
+    }
+    let mdd = plan.sdk_root.join("bin").join("mdd");
+    if !mdd.is_file() {
+        eprintln!("monkey: mdd not found at {}", mdd.display());
+        return 1;
+    }
+    let debug_xml = plan.prg.with_extension("prg.debug.xml");
+    let mut cmd = Command::new(&mdd);
+    cmd.arg("-d")
+        .arg(&plan.device)
+        .arg("-e")
+        .arg(&plan.prg)
+        .current_dir(&plan.project.root)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    if debug_xml.is_file() {
+        cmd.arg("-x").arg(&debug_xml);
+    }
+    match cmd.spawn() {
+        Ok(_) => {
+            println!("{}", plan.prg.display());
+            0
+        }
+        Err(e) => {
+            eprintln!("monkey: could not start mdd: {}", e);
             1
         }
     }
