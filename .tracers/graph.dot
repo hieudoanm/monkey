@@ -868,8 +868,13 @@ digraph tracers {
   "file:packages/landing/src/lib/sections.ts" [label="packages/landing/src/lib/sections.ts\nfile", color="blue"];
   "file:scripts/install-local.sh" [label="scripts/install-local.sh\nfile", color="blue"];
   "file:scripts/install.sh" [label="scripts/install.sh\nfile", color="blue"];
+  "framework:config-rs" [label="config-rs\nframework", color="magenta"];
   "framework:nextjs:tailwindcss" [label="Next.js\nframework", color="magenta"];
   "framework:react:tailwindcss" [label="React\nframework", color="magenta"];
+  "framework:serde" [label="Serde\nframework", color="magenta"];
+  "framework:tailwindcss:tailwindcss" [label="Tailwind CSS\nframework", color="magenta"];
+  "framework:turborepo:commitlint" [label="Turborepo\nframework", color="magenta"];
+  "framework:vitest:eslint" [label="Vitest\nframework", color="magenta"];
   "function:crates/monkey-cli/build.rs::main" [label="main\nfunction", color="red"];
   "function:crates/monkey-cli/src/api_check.rs::api_uses" [label="api_uses\nfunction", color="red"];
   "function:crates/monkey-cli/src/api_check.rs::validate" [label="validate\nfunction", color="red"];
@@ -17686,8 +17691,13 @@ digraph tracers {
   "repository:." -> "package:packages/extensions/zed/formatter" [label="contains", style="solid"];
   "repository:." -> "package:packages/extensions/zed/grammars/tree-sitter-jungle" [label="contains", style="solid"];
   "repository:." -> "package:packages/landing" [label="contains", style="solid"];
+  "repository:." -> "framework:config-rs" [label="uses_framework", style="dashed"];
   "repository:." -> "framework:nextjs:tailwindcss" [label="uses_framework", style="dashed"];
   "repository:." -> "framework:react:tailwindcss" [label="uses_framework", style="dashed"];
+  "repository:." -> "framework:serde" [label="uses_framework", style="dashed"];
+  "repository:." -> "framework:tailwindcss:tailwindcss" [label="uses_framework", style="dashed"];
+  "repository:." -> "framework:turborepo:commitlint" [label="uses_framework", style="dashed"];
+  "repository:." -> "framework:vitest:eslint" [label="uses_framework", style="dashed"];
   "struct:crates/monkey-cli/src/api_check.rs::ApiUseCollector" -> "unresolved:rust:Visitor" [label="implements", style="dotted"];
   "struct:crates/monkey-cli/src/api_check.rs::ApiUseCollector" -> "unresolved:rust:Span" [label="uses_type", style="dotted"];
   "struct:crates/monkey-cli/src/api_check.rs::FileApiDiags" -> "unresolved:rust:Diagnostic" [label="uses_type", style="dotted"];
