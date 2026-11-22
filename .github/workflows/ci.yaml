@@ -5,7 +5,8 @@ on:
     branches:
       - master
   pull_request:
-    branches: [master]
+    branches:
+      - master
     paths:
       - "crates/**"
       - "packages/extensions/vscode/**"
@@ -158,7 +159,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
@@ -194,7 +198,10 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: [extension-vscode, extension-zed, cli-build]
+    needs:
+      - extension-vscode
+      - extension-zed
+      - cli-build
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     permissions:
       contents: write
