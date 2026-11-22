@@ -588,6 +588,13 @@
   ],
   "frameworks": [
     {
+      "name": "config-rs",
+      "displayName": "config-rs",
+      "family": "rust",
+      "version": null,
+      "confidence": "medium"
+    },
+    {
       "name": "nextjs",
       "displayName": "Next.js",
       "family": "ecmascript",
@@ -599,6 +606,34 @@
       "displayName": "React",
       "family": "ecmascript",
       "version": "tailwindcss",
+      "confidence": "high"
+    },
+    {
+      "name": "serde",
+      "displayName": "Serde",
+      "family": "rust",
+      "version": null,
+      "confidence": "high"
+    },
+    {
+      "name": "tailwindcss",
+      "displayName": "Tailwind CSS",
+      "family": "ecmascript",
+      "version": "tailwindcss",
+      "confidence": "medium"
+    },
+    {
+      "name": "turborepo",
+      "displayName": "Turborepo",
+      "family": "ecmascript",
+      "version": "commitlint",
+      "confidence": "medium"
+    },
+    {
+      "name": "vitest",
+      "displayName": "Vitest",
+      "family": "ecmascript",
+      "version": "eslint",
       "confidence": "high"
     }
   ],
@@ -13440,6 +13475,16 @@
       "language": "bash"
     },
     {
+      "id": "framework:config-rs",
+      "kind": "framework",
+      "name": "config-rs",
+      "metadata": {
+        "confidence": "medium",
+        "family": "rust",
+        "framework": "config-rs"
+      }
+    },
+    {
       "id": "framework:nextjs:tailwindcss",
       "kind": "framework",
       "name": "Next.js",
@@ -13457,6 +13502,46 @@
         "confidence": "high",
         "family": "ecmascript",
         "framework": "react"
+      }
+    },
+    {
+      "id": "framework:serde",
+      "kind": "framework",
+      "name": "Serde",
+      "metadata": {
+        "confidence": "high",
+        "family": "rust",
+        "framework": "serde"
+      }
+    },
+    {
+      "id": "framework:tailwindcss:tailwindcss",
+      "kind": "framework",
+      "name": "Tailwind CSS",
+      "metadata": {
+        "confidence": "medium",
+        "family": "ecmascript",
+        "framework": "tailwindcss"
+      }
+    },
+    {
+      "id": "framework:turborepo:commitlint",
+      "kind": "framework",
+      "name": "Turborepo",
+      "metadata": {
+        "confidence": "medium",
+        "family": "ecmascript",
+        "framework": "turborepo"
+      }
+    },
+    {
+      "id": "framework:vitest:eslint",
+      "kind": "framework",
+      "name": "Vitest",
+      "metadata": {
+        "confidence": "high",
+        "family": "ecmascript",
+        "framework": "vitest"
       }
     },
     {
@@ -291463,6 +291548,13 @@
     },
     {
       "source": "repository:.",
+      "target": "framework:config-rs",
+      "kind": "uses_framework",
+      "status": "resolved_internal",
+      "origin": "syntax"
+    },
+    {
+      "source": "repository:.",
       "target": "framework:nextjs:tailwindcss",
       "kind": "uses_framework",
       "status": "resolved_internal",
@@ -291471,6 +291563,34 @@
     {
       "source": "repository:.",
       "target": "framework:react:tailwindcss",
+      "kind": "uses_framework",
+      "status": "resolved_internal",
+      "origin": "syntax"
+    },
+    {
+      "source": "repository:.",
+      "target": "framework:serde",
+      "kind": "uses_framework",
+      "status": "resolved_internal",
+      "origin": "syntax"
+    },
+    {
+      "source": "repository:.",
+      "target": "framework:tailwindcss:tailwindcss",
+      "kind": "uses_framework",
+      "status": "resolved_internal",
+      "origin": "syntax"
+    },
+    {
+      "source": "repository:.",
+      "target": "framework:turborepo:commitlint",
+      "kind": "uses_framework",
+      "status": "resolved_internal",
+      "origin": "syntax"
+    },
+    {
+      "source": "repository:.",
+      "target": "framework:vitest:eslint",
       "kind": "uses_framework",
       "status": "resolved_internal",
       "origin": "syntax"
@@ -294733,8 +294853,8 @@
   "statistics": {
     "files": 126,
     "packages": 5,
-    "nodes": 4542,
-    "edges": 13272,
+    "nodes": 4547,
+    "edges": 13277,
     "symbols": 3221,
     "unresolvedEdges": 4267,
     "diagnostics": 18,
@@ -294745,7 +294865,7 @@
       "enum": 18,
       "external_symbol": 269,
       "file": 126,
-      "framework": 2,
+      "framework": 7,
       "function": 500,
       "interface": 24,
       "method": 231,
@@ -294766,7 +294886,7 @@
       "exports": 563,
       "implements": 9,
       "imports": 226,
-      "uses_framework": 2,
+      "uses_framework": 7,
       "uses_type": 774
     },
     "byLanguage": {
@@ -294780,12 +294900,17 @@
     },
     "byStatus": {
       "resolved_external": 634,
-      "resolved_internal": 8371,
+      "resolved_internal": 8376,
       "unresolved": 4267
     },
     "byFramework": {
+      "config-rs": 1,
       "nextjs": 1,
-      "react": 1
+      "react": 1,
+      "serde": 1,
+      "tailwindcss": 1,
+      "turborepo": 1,
+      "vitest": 1
     }
   }
 };</script>
