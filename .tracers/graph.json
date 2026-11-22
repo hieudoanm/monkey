@@ -3,8 +3,8 @@
   "tracersVersion": "0.0.1",
   "repository": {
     "id": "repository:.",
-    "name": "repository",
-    "root": ".",
+    "name": "monkey",
+    "root": "/Users/hieudoan/git/github.com/hieudoanm/monkey",
     "fileCount": 126,
     "languageCount": 23
   },
@@ -11236,12 +11236,6 @@
       "language": "rust"
     },
     {
-      "id": "external:rust:index::ProjectIndex.build",
-      "kind": "external_symbol",
-      "name": "build",
-      "language": "rust"
-    },
-    {
       "id": "external:rust:it.next.ok",
       "kind": "external_symbol",
       "name": "ok",
@@ -11257,12 +11251,6 @@
       "id": "external:rust:it.next.unwrap_or",
       "kind": "external_symbol",
       "name": "unwrap_or",
-      "language": "rust"
-    },
-    {
-      "id": "external:rust:monkey_core::SourceMap.new",
-      "kind": "external_symbol",
-      "name": "new",
       "language": "rust"
     },
     {
@@ -12289,18 +12277,6 @@
       "id": "external:rust:std::zip",
       "kind": "external_symbol",
       "name": "zip",
-      "language": "rust"
-    },
-    {
-      "id": "external:rust:toybox::ToyboxDb.load",
-      "kind": "external_symbol",
-      "name": "load",
-      "language": "rust"
-    },
-    {
-      "id": "external:rust:toybox::ToyboxDb.parse",
-      "kind": "external_symbol",
-      "name": "parse",
       "language": "rust"
     },
     {
@@ -42858,30 +42834,6 @@
       "language": "rust"
     },
     {
-      "id": "unresolved:rust:index::IndexedFile",
-      "kind": "unknown",
-      "name": "index::IndexedFile",
-      "language": "rust"
-    },
-    {
-      "id": "unresolved:rust:index::ProjectIndex",
-      "kind": "unknown",
-      "name": "index::ProjectIndex",
-      "language": "rust"
-    },
-    {
-      "id": "unresolved:rust:intel::Decl",
-      "kind": "unknown",
-      "name": "intel::Decl",
-      "language": "rust"
-    },
-    {
-      "id": "unresolved:rust:intel::FnDecl",
-      "kind": "unknown",
-      "name": "intel::FnDecl",
-      "language": "rust"
-    },
-    {
       "id": "unresolved:rust:into_owned",
       "kind": "unknown",
       "name": "into_owned",
@@ -43014,12 +42966,6 @@
       "language": "rust"
     },
     {
-      "id": "unresolved:rust:line_col",
-      "kind": "unknown",
-      "name": "line_col",
-      "language": "rust"
-    },
-    {
       "id": "unresolved:rust:lint_ast",
       "kind": "unknown",
       "name": "lint_ast",
@@ -43059,18 +43005,6 @@
       "id": "unresolved:rust:members_of",
       "kind": "unknown",
       "name": "members_of",
-      "language": "rust"
-    },
-    {
-      "id": "unresolved:rust:monkey_core::Diagnostic",
-      "kind": "unknown",
-      "name": "monkey_core::Diagnostic",
-      "language": "rust"
-    },
-    {
-      "id": "unresolved:rust:monkey_sdk::Sdk",
-      "kind": "unknown",
-      "name": "monkey_sdk::Sdk",
       "language": "rust"
     },
     {
@@ -43242,12 +43176,6 @@
       "language": "rust"
     },
     {
-      "id": "unresolved:rust:scaffold::ScaffoldOptions",
-      "kind": "unknown",
-      "name": "scaffold::ScaffoldOptions",
-      "language": "rust"
-    },
-    {
       "id": "unresolved:rust:serve",
       "kind": "unknown",
       "name": "serve",
@@ -43389,12 +43317,6 @@
       "id": "unresolved:rust:to_string_lossy",
       "kind": "unknown",
       "name": "to_string_lossy",
-      "language": "rust"
-    },
-    {
-      "id": "unresolved:rust:toybox::ToyboxDb",
-      "kind": "unknown",
-      "name": "toybox::ToyboxDb",
       "language": "rust"
     },
     {
@@ -123152,9 +123074,9 @@
     },
     {
       "source": "function:crates/monkey-cli/src/main.rs::cmd_new",
-      "target": "unresolved:rust:scaffold::ScaffoldOptions",
+      "target": "struct:crates/monkey-cli/src/scaffold.rs::ScaffoldOptions",
       "kind": "uses_type",
-      "status": "unresolved",
+      "status": "resolved_internal",
       "origin": "syntax",
       "sites": [
         {
@@ -126719,6 +126641,27 @@
     },
     {
       "source": "function:crates/monkey-cli/src/main.rs::cmd_sdk_open",
+      "target": "method:crates/monkey-sdk/src/lib.rs::Sdk.bin",
+      "kind": "calls",
+      "status": "resolved_internal",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 746,
+            "column": 15,
+            "byte": 26181
+          },
+          "end": {
+            "line": 746,
+            "column": 24,
+            "byte": 26190
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:crates/monkey-cli/src/main.rs::cmd_sdk_open",
       "target": "unresolved:rust:arg",
       "kind": "calls",
       "status": "unresolved",
@@ -126734,27 +126677,6 @@
             "line": 788,
             "column": 48,
             "byte": 27854
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:crates/monkey-cli/src/main.rs::cmd_sdk_open",
-      "target": "unresolved:rust:bin",
-      "kind": "calls",
-      "status": "unresolved",
-      "origin": "syntax",
-      "sites": [
-        {
-          "start": {
-            "line": 746,
-            "column": 15,
-            "byte": 26181
-          },
-          "end": {
-            "line": 746,
-            "column": 24,
-            "byte": 26190
           }
         }
       ]
@@ -126944,9 +126866,9 @@
     },
     {
       "source": "function:crates/monkey-cli/src/main.rs::cmd_sdk_open",
-      "target": "unresolved:rust:monkey_sdk::Sdk",
+      "target": "struct:crates/monkey-sdk/src/lib.rs::Sdk",
       "kind": "uses_type",
-      "status": "unresolved",
+      "status": "resolved_internal",
       "origin": "syntax",
       "sites": [
         {
@@ -144995,27 +144917,6 @@
     },
     {
       "source": "function:crates/monkey-linter/src/lib.rs::tests.flags_request_update_in_onupdate",
-      "target": "external:rust:monkey_core::SourceMap.new",
-      "kind": "calls",
-      "status": "resolved_external",
-      "origin": "lexical",
-      "sites": [
-        {
-          "start": {
-            "line": 111,
-            "column": 19,
-            "byte": 3765
-          },
-          "end": {
-            "line": 111,
-            "column": 51,
-            "byte": 3797
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:crates/monkey-linter/src/lib.rs::tests.flags_request_update_in_onupdate",
       "target": "external:rust:std::assert_eq",
       "kind": "calls",
       "status": "resolved_external",
@@ -145166,10 +145067,10 @@
     },
     {
       "source": "function:crates/monkey-linter/src/lib.rs::tests.flags_request_update_in_onupdate",
-      "target": "unresolved:rust:line_col",
+      "target": "method:crates/monkey-core/src/map.rs::SourceMap.line_col",
       "kind": "calls",
-      "status": "unresolved",
-      "origin": "syntax",
+      "status": "resolved_internal",
+      "origin": "lexical",
       "sites": [
         {
           "start": {
@@ -145181,6 +145082,27 @@
             "line": 112,
             "column": 71,
             "byte": 3869
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:crates/monkey-linter/src/lib.rs::tests.flags_request_update_in_onupdate",
+      "target": "method:crates/monkey-core/src/map.rs::SourceMap.new",
+      "kind": "calls",
+      "status": "resolved_internal",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 111,
+            "column": 19,
+            "byte": 3765
+          },
+          "end": {
+            "line": 111,
+            "column": 51,
+            "byte": 3797
           }
         }
       ]
@@ -168617,27 +168539,6 @@
     },
     {
       "source": "function:crates/monkey-lsp/src/lib.rs::tests.toybox_member_hover_shows_api_docs",
-      "target": "external:rust:toybox::ToyboxDb.parse",
-      "kind": "calls",
-      "status": "resolved_external",
-      "origin": "lexical",
-      "sites": [
-        {
-          "start": {
-            "line": 2080,
-            "column": 38,
-            "byte": 80196
-          },
-          "end": {
-            "line": 2080,
-            "column": 66,
-            "byte": 80224
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:crates/monkey-lsp/src/lib.rs::tests.toybox_member_hover_shows_api_docs",
       "target": "external:unresolved:serde_json::json",
       "kind": "calls",
       "status": "resolved_internal",
@@ -168752,6 +168653,27 @@
             "line": 2079,
             "column": 34,
             "byte": 80157
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:crates/monkey-lsp/src/lib.rs::tests.toybox_member_hover_shows_api_docs",
+      "target": "method:crates/monkey-lsp/src/toybox.rs::ToyboxDb.parse",
+      "kind": "calls",
+      "status": "resolved_internal",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 2080,
+            "column": 38,
+            "byte": 80196
+          },
+          "end": {
+            "line": 2080,
+            "column": 66,
+            "byte": 80224
           }
         }
       ]
@@ -172688,6 +172610,27 @@
     },
     {
       "source": "function:crates/monkey-mcp/src/lib.rs::diagnostics_json",
+      "target": "struct:crates/monkey-core/src/diagnostic.rs::Diagnostic",
+      "kind": "uses_type",
+      "status": "resolved_internal",
+      "origin": "syntax",
+      "sites": [
+        {
+          "start": {
+            "line": 123,
+            "column": 53,
+            "byte": 6104
+          },
+          "end": {
+            "line": 123,
+            "column": 76,
+            "byte": 6127
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:crates/monkey-mcp/src/lib.rs::diagnostics_json",
       "target": "struct:crates/monkey-core/src/render.rs::FileDiagnostics",
       "kind": "uses_type",
       "status": "resolved_internal",
@@ -172703,27 +172646,6 @@
             "line": 124,
             "column": 43,
             "byte": 6184
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:crates/monkey-mcp/src/lib.rs::diagnostics_json",
-      "target": "unresolved:rust:monkey_core::Diagnostic",
-      "kind": "uses_type",
-      "status": "unresolved",
-      "origin": "syntax",
-      "sites": [
-        {
-          "start": {
-            "line": 123,
-            "column": 53,
-            "byte": 6104
-          },
-          "end": {
-            "line": 123,
-            "column": 76,
-            "byte": 6127
           }
         }
       ]
@@ -216155,9 +216077,9 @@
     },
     {
       "source": "method:crates/monkey-lsp/src/lib.rs::Server.call_item",
-      "target": "unresolved:rust:intel::FnDecl",
+      "target": "struct:crates/monkey-lsp/src/intel.rs::FnDecl",
       "kind": "uses_type",
-      "status": "unresolved",
+      "status": "resolved_internal",
       "origin": "syntax",
       "sites": [
         {
@@ -218474,9 +218396,9 @@
     },
     {
       "source": "method:crates/monkey-lsp/src/lib.rs::Server.find_fn_decl",
-      "target": "unresolved:rust:intel::FnDecl",
+      "target": "struct:crates/monkey-lsp/src/intel.rs::FnDecl",
       "kind": "uses_type",
-      "status": "unresolved",
+      "status": "resolved_internal",
       "origin": "syntax",
       "sites": [
         {
@@ -224165,27 +224087,6 @@
     },
     {
       "source": "method:crates/monkey-lsp/src/lib.rs::Server.project_index",
-      "target": "external:rust:index::ProjectIndex.build",
-      "kind": "calls",
-      "status": "resolved_external",
-      "origin": "lexical",
-      "sites": [
-        {
-          "start": {
-            "line": 422,
-            "column": 27,
-            "byte": 18997
-          },
-          "end": {
-            "line": 422,
-            "column": 60,
-            "byte": 19030
-          }
-        }
-      ]
-    },
-    {
-      "source": "method:crates/monkey-lsp/src/lib.rs::Server.project_index",
       "target": "external:rust:std::Some",
       "kind": "calls",
       "status": "resolved_external",
@@ -224483,6 +224384,27 @@
     },
     {
       "source": "method:crates/monkey-lsp/src/lib.rs::Server.project_index",
+      "target": "method:crates/monkey-lsp/src/index.rs::ProjectIndex.build",
+      "kind": "calls",
+      "status": "resolved_internal",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 422,
+            "column": 27,
+            "byte": 18997
+          },
+          "end": {
+            "line": 422,
+            "column": 60,
+            "byte": 19030
+          }
+        }
+      ]
+    },
+    {
+      "source": "method:crates/monkey-lsp/src/lib.rs::Server.project_index",
       "target": "unresolved:rust:collect_decls",
       "kind": "calls",
       "status": "unresolved",
@@ -224588,9 +224510,9 @@
     },
     {
       "source": "method:crates/monkey-lsp/src/lib.rs::Server.project_index",
-      "target": "unresolved:rust:index::ProjectIndex",
+      "target": "struct:crates/monkey-lsp/src/index.rs::ProjectIndex",
       "kind": "uses_type",
-      "status": "unresolved",
+      "status": "resolved_internal",
       "origin": "syntax",
       "sites": [
         {
@@ -227606,27 +227528,6 @@
     },
     {
       "source": "method:crates/monkey-lsp/src/lib.rs::Server.toybox_doc",
-      "target": "external:rust:toybox::ToyboxDb.load",
-      "kind": "calls",
-      "status": "resolved_external",
-      "origin": "lexical",
-      "sites": [
-        {
-          "start": {
-            "line": 1272,
-            "column": 40,
-            "byte": 50729
-          },
-          "end": {
-            "line": 1272,
-            "column": 64,
-            "byte": 50753
-          }
-        }
-      ]
-    },
-    {
-      "source": "method:crates/monkey-lsp/src/lib.rs::Server.toybox_doc",
       "target": "external:unresolved:serde_json::json",
       "kind": "calls",
       "status": "resolved_internal",
@@ -227642,6 +227543,27 @@
             "line": 1302,
             "column": 11,
             "byte": 51773
+          }
+        }
+      ]
+    },
+    {
+      "source": "method:crates/monkey-lsp/src/lib.rs::Server.toybox_doc",
+      "target": "method:crates/monkey-lsp/src/toybox.rs::ToyboxDb.load",
+      "kind": "calls",
+      "status": "resolved_internal",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 1272,
+            "column": 40,
+            "byte": 50729
+          },
+          "end": {
+            "line": 1272,
+            "column": 64,
+            "byte": 50753
           }
         }
       ]
@@ -228140,9 +228062,9 @@
     },
     {
       "source": "method:crates/monkey-lsp/src/lib.rs::Server.toybox_members",
-      "target": "external:rust:toybox::ToyboxDb.load",
+      "target": "method:crates/monkey-lsp/src/toybox.rs::ToyboxDb.load",
       "kind": "calls",
-      "status": "resolved_external",
+      "status": "resolved_internal",
       "origin": "lexical",
       "sites": [
         {
@@ -228428,9 +228350,9 @@
     },
     {
       "source": "method:crates/monkey-lsp/src/lib.rs::Server.toybox_return_type",
-      "target": "external:rust:toybox::ToyboxDb.load",
+      "target": "method:crates/monkey-lsp/src/toybox.rs::ToyboxDb.load",
       "kind": "calls",
-      "status": "resolved_external",
+      "status": "resolved_internal",
       "origin": "lexical",
       "sites": [
         {
@@ -229139,9 +229061,9 @@
     },
     {
       "source": "method:crates/monkey-lsp/src/lib.rs::Server.workspace_symbol_result",
-      "target": "unresolved:rust:index::IndexedFile",
+      "target": "struct:crates/monkey-lsp/src/index.rs::IndexedFile",
       "kind": "uses_type",
-      "status": "unresolved",
+      "status": "resolved_internal",
       "origin": "syntax",
       "sites": [
         {
@@ -229160,9 +229082,9 @@
     },
     {
       "source": "method:crates/monkey-lsp/src/lib.rs::Server.workspace_symbol_result",
-      "target": "unresolved:rust:intel::Decl",
+      "target": "struct:crates/monkey-lsp/src/intel.rs::Decl",
       "kind": "uses_type",
-      "status": "unresolved",
+      "status": "resolved_internal",
       "origin": "syntax",
       "sites": [
         {
@@ -289754,9 +289676,9 @@
     },
     {
       "source": "struct:crates/monkey-lsp/src/lib.rs::Server",
-      "target": "unresolved:rust:index::ProjectIndex",
+      "target": "struct:crates/monkey-lsp/src/index.rs::ProjectIndex",
       "kind": "uses_type",
-      "status": "unresolved",
+      "status": "resolved_internal",
       "origin": "syntax",
       "sites": [
         {
@@ -289775,9 +289697,9 @@
     },
     {
       "source": "struct:crates/monkey-lsp/src/lib.rs::Server",
-      "target": "unresolved:rust:toybox::ToyboxDb",
+      "target": "struct:crates/monkey-lsp/src/toybox.rs::ToyboxDb",
       "kind": "uses_type",
-      "status": "unresolved",
+      "status": "resolved_internal",
       "origin": "syntax",
       "sites": [
         {
@@ -292037,17 +291959,17 @@
   "statistics": {
     "files": 126,
     "packages": 5,
-    "nodes": 4231,
+    "nodes": 4218,
     "edges": 13328,
     "symbols": 3237,
-    "unresolvedEdges": 701,
+    "unresolvedEdges": 689,
     "diagnostics": 20,
     "byNodeKind": {
       "class": 2,
       "constant": 464,
       "constructor": 2,
       "enum": 18,
-      "external_symbol": 378,
+      "external_symbol": 374,
       "file": 126,
       "framework": 7,
       "function": 500,
@@ -292060,7 +291982,7 @@
       "struct": 78,
       "trait": 1,
       "type": 2,
-      "unknown": 306,
+      "unknown": 297,
       "variable": 1568
     },
     "byEdgeKind": {
@@ -292078,14 +292000,14 @@
       "c": 59,
       "javascript": 214,
       "markdown": 72,
-      "rust": 3154,
+      "rust": 3141,
       "tsx": 262,
       "typescript": 447
     },
     "byStatus": {
-      "resolved_external": 3076,
-      "resolved_internal": 9551,
-      "unresolved": 701
+      "resolved_external": 3070,
+      "resolved_internal": 9569,
+      "unresolved": 689
     },
     "byFramework": {
       "config-rs": 1,

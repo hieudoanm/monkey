@@ -549,11 +549,9 @@ digraph tracers {
   "external:rust:ToyboxDb.parse" [label="parse\nexternal_symbol", color="lightgray"];
   "external:rust:Vec.new" [label="new\nexternal_symbol", color="lightgray"];
   "external:rust:Vec.with_capacity" [label="with_capacity\nexternal_symbol", color="lightgray"];
-  "external:rust:index::ProjectIndex.build" [label="build\nexternal_symbol", color="lightgray"];
   "external:rust:it.next.ok" [label="ok\nexternal_symbol", color="lightgray"];
   "external:rust:it.next.parse" [label="parse\nexternal_symbol", color="lightgray"];
   "external:rust:it.next.unwrap_or" [label="unwrap_or\nexternal_symbol", color="lightgray"];
-  "external:rust:monkey_core::SourceMap.new" [label="new\nexternal_symbol", color="lightgray"];
   "external:rust:monkey_core::Span.new" [label="new\nexternal_symbol", color="lightgray"];
   "external:rust:next.clone" [label="clone\nexternal_symbol", color="lightgray"];
   "external:rust:next.dedup" [label="dedup\nexternal_symbol", color="lightgray"];
@@ -725,8 +723,6 @@ digraph tracers {
   "external:rust:std::write" [label="write\nexternal_symbol", color="lightgray"];
   "external:rust:std::writeln" [label="writeln\nexternal_symbol", color="lightgray"];
   "external:rust:std::zip" [label="zip\nexternal_symbol", color="lightgray"];
-  "external:rust:toybox::ToyboxDb.load" [label="load\nexternal_symbol", color="lightgray"];
-  "external:rust:toybox::ToyboxDb.parse" [label="parse\nexternal_symbol", color="lightgray"];
   "external:tsx:@/components/molecules/Features.Feature" [label="Feature\nexternal_symbol", color="lightgray"];
   "external:tsx:JSON.stringify" [label="stringify\nexternal_symbol", color="lightgray"];
   "external:tsx:Math.max" [label="max\nexternal_symbol", color="lightgray"];
@@ -2499,10 +2495,6 @@ digraph tracers {
   "unresolved:rust:help" [label="help\nunknown", color="black"];
   "unresolved:rust:hover" [label="hover\nunknown", color="black"];
   "unresolved:rust:ident_at" [label="ident_at\nunknown", color="black"];
-  "unresolved:rust:index::IndexedFile" [label="index::IndexedFile\nunknown", color="black"];
-  "unresolved:rust:index::ProjectIndex" [label="index::ProjectIndex\nunknown", color="black"];
-  "unresolved:rust:intel::Decl" [label="intel::Decl\nunknown", color="black"];
-  "unresolved:rust:intel::FnDecl" [label="intel::FnDecl\nunknown", color="black"];
   "unresolved:rust:into_owned" [label="into_owned\nunknown", color="black"];
   "unresolved:rust:is_absolute" [label="is_absolute\nunknown", color="black"];
   "unresolved:rust:is_alphabetic" [label="is_alphabetic\nunknown", color="black"];
@@ -2525,7 +2517,6 @@ digraph tracers {
   "unresolved:rust:len_utf16" [label="len_utf16\nunknown", color="black"];
   "unresolved:rust:len_utf8" [label="len_utf8\nunknown", color="black"];
   "unresolved:rust:lex" [label="lex\nunknown", color="black"];
-  "unresolved:rust:line_col" [label="line_col\nunknown", color="black"];
   "unresolved:rust:lint_ast" [label="lint_ast\nunknown", color="black"];
   "unresolved:rust:lint_text" [label="lint_text\nunknown", color="black"];
   "unresolved:rust:list_sdks" [label="list_sdks\nunknown", color="black"];
@@ -2533,8 +2524,6 @@ digraph tracers {
   "unresolved:rust:lock" [label="lock\nunknown", color="black"];
   "unresolved:rust:match_indices" [label="match_indices\nunknown", color="black"];
   "unresolved:rust:members_of" [label="members_of\nunknown", color="black"];
-  "unresolved:rust:monkey_core::Diagnostic" [label="monkey_core::Diagnostic\nunknown", color="black"];
-  "unresolved:rust:monkey_sdk::Sdk" [label="monkey_sdk::Sdk\nunknown", color="black"];
   "unresolved:rust:note" [label="note\nunknown", color="black"];
   "unresolved:rust:offset_at" [label="offset_at\nunknown", color="black"];
   "unresolved:rust:ok_or" [label="ok_or\nunknown", color="black"];
@@ -2563,7 +2552,6 @@ digraph tracers {
   "unresolved:rust:run" [label="run\nunknown", color="black"];
   "unresolved:rust:saturating_sub" [label="saturating_sub\nunknown", color="black"];
   "unresolved:rust:scaffold" [label="scaffold\nunknown", color="black"];
-  "unresolved:rust:scaffold::ScaffoldOptions" [label="scaffold::ScaffoldOptions\nunknown", color="black"];
   "unresolved:rust:serve" [label="serve\nunknown", color="black"];
   "unresolved:rust:set_nullable" [label="set_nullable\nunknown", color="black"];
   "unresolved:rust:signature_help" [label="signature_help\nunknown", color="black"];
@@ -2588,7 +2576,6 @@ digraph tracers {
   "unresolved:rust:to_path_buf" [label="to_path_buf\nunknown", color="black"];
   "unresolved:rust:to_str" [label="to_str\nunknown", color="black"];
   "unresolved:rust:to_string_lossy" [label="to_string_lossy\nunknown", color="black"];
-  "unresolved:rust:toybox::ToyboxDb" [label="toybox::ToyboxDb\nunknown", color="black"];
   "unresolved:rust:trim_end_matches" [label="trim_end_matches\nunknown", color="black"];
   "unresolved:rust:trim_start_matches" [label="trim_start_matches\nunknown", color="black"];
   "unresolved:rust:try_wait" [label="try_wait\nunknown", color="black"];
@@ -8900,7 +8887,7 @@ digraph tracers {
   "function:crates/monkey-cli/src/main.rs::cmd_new" -> "function:crates/monkey-cli/src/main.rs::take_flags" [label="calls", style="bold"];
   "function:crates/monkey-cli/src/main.rs::cmd_new" -> "unresolved:rust:scaffold" [label="calls", style="dotted"];
   "function:crates/monkey-cli/src/main.rs::cmd_new" -> "external:rust:std::ExitCode" [label="uses_type", style="dotted"];
-  "function:crates/monkey-cli/src/main.rs::cmd_new" -> "unresolved:rust:scaffold::ScaffoldOptions" [label="uses_type", style="dotted"];
+  "function:crates/monkey-cli/src/main.rs::cmd_new" -> "struct:crates/monkey-cli/src/scaffold.rs::ScaffoldOptions" [label="uses_type", style="dotted"];
   "function:crates/monkey-cli/src/main.rs::cmd_parse" -> "external:rust:ExitCode.from" [label="calls", style="bold"];
   "function:crates/monkey-cli/src/main.rs::cmd_parse" -> "external:rust:std::any" [label="calls", style="bold"];
   "function:crates/monkey-cli/src/main.rs::cmd_parse" -> "external:rust:std::cloned" [label="calls", style="bold"];
@@ -9015,8 +9002,8 @@ digraph tracers {
   "function:crates/monkey-cli/src/main.rs::cmd_sdk_open" -> "external:rust:std::join" [label="calls", style="bold"];
   "function:crates/monkey-cli/src/main.rs::cmd_sdk_open" -> "external:rust:std::map" [label="calls", style="bold"];
   "function:crates/monkey-cli/src/main.rs::cmd_sdk_open" -> "external:rust:std::unwrap_or" [label="calls", style="bold"];
+  "function:crates/monkey-cli/src/main.rs::cmd_sdk_open" -> "method:crates/monkey-sdk/src/lib.rs::Sdk.bin" [label="calls", style="bold"];
   "function:crates/monkey-cli/src/main.rs::cmd_sdk_open" -> "unresolved:rust:arg" [label="calls", style="dotted"];
-  "function:crates/monkey-cli/src/main.rs::cmd_sdk_open" -> "unresolved:rust:bin" [label="calls", style="dotted"];
   "function:crates/monkey-cli/src/main.rs::cmd_sdk_open" -> "unresolved:rust:code" [label="calls", style="dotted"];
   "function:crates/monkey-cli/src/main.rs::cmd_sdk_open" -> "unresolved:rust:exists" [label="calls", style="dotted"];
   "function:crates/monkey-cli/src/main.rs::cmd_sdk_open" -> "unresolved:rust:is_dir" [label="calls", style="dotted"];
@@ -9024,7 +9011,7 @@ digraph tracers {
   "function:crates/monkey-cli/src/main.rs::cmd_sdk_open" -> "unresolved:rust:status" [label="calls", style="dotted"];
   "function:crates/monkey-cli/src/main.rs::cmd_sdk_open" -> "unresolved:rust:success" [label="calls", style="dotted"];
   "function:crates/monkey-cli/src/main.rs::cmd_sdk_open" -> "external:rust:std::ExitCode" [label="uses_type", style="dotted"];
-  "function:crates/monkey-cli/src/main.rs::cmd_sdk_open" -> "unresolved:rust:monkey_sdk::Sdk" [label="uses_type", style="dotted"];
+  "function:crates/monkey-cli/src/main.rs::cmd_sdk_open" -> "struct:crates/monkey-sdk/src/lib.rs::Sdk" [label="uses_type", style="dotted"];
   "function:crates/monkey-cli/src/main.rs::cmd_test" -> "external:rust:ExitCode.from" [label="calls", style="bold"];
   "function:crates/monkey-cli/src/main.rs::cmd_test" -> "external:rust:std::Some" [label="calls", style="bold"];
   "function:crates/monkey-cli/src/main.rs::cmd_test" -> "external:rust:std::any" [label="calls", style="bold"];
@@ -9695,14 +9682,14 @@ digraph tracers {
   "function:crates/monkey-linter/src/lib.rs::tests.flags_identical_operands" -> "function:crates/monkey-linter/src/lib.rs::lint_monkeyc" [label="calls", style="bold"];
   "function:crates/monkey-linter/src/lib.rs::tests.flags_missing_eof_newline" -> "external:rust:std::assert" [label="calls", style="bold"];
   "function:crates/monkey-linter/src/lib.rs::tests.flags_missing_eof_newline" -> "function:crates/monkey-linter/src/lib.rs::lint_monkeyc" [label="calls", style="bold"];
-  "function:crates/monkey-linter/src/lib.rs::tests.flags_request_update_in_onupdate" -> "external:rust:monkey_core::SourceMap.new" [label="calls", style="bold"];
   "function:crates/monkey-linter/src/lib.rs::tests.flags_request_update_in_onupdate" -> "external:rust:std::assert_eq" [label="calls", style="bold"];
   "function:crates/monkey-linter/src/lib.rs::tests.flags_request_update_in_onupdate" -> "external:rust:std::collect" [label="calls", style="bold"];
   "function:crates/monkey-linter/src/lib.rs::tests.flags_request_update_in_onupdate" -> "external:rust:std::filter" [label="calls", style="bold"];
   "function:crates/monkey-linter/src/lib.rs::tests.flags_request_update_in_onupdate" -> "external:rust:std::iter" [label="calls", style="bold"];
   "function:crates/monkey-linter/src/lib.rs::tests.flags_request_update_in_onupdate" -> "external:rust:std::unwrap" [label="calls", style="bold"];
   "function:crates/monkey-linter/src/lib.rs::tests.flags_request_update_in_onupdate" -> "function:crates/monkey-linter/src/lib.rs::lint_monkeyc" [label="calls", style="bold"];
-  "function:crates/monkey-linter/src/lib.rs::tests.flags_request_update_in_onupdate" -> "unresolved:rust:line_col" [label="calls", style="dotted"];
+  "function:crates/monkey-linter/src/lib.rs::tests.flags_request_update_in_onupdate" -> "method:crates/monkey-core/src/map.rs::SourceMap.line_col" [label="calls", style="bold"];
+  "function:crates/monkey-linter/src/lib.rs::tests.flags_request_update_in_onupdate" -> "method:crates/monkey-core/src/map.rs::SourceMap.new" [label="calls", style="bold"];
   "function:crates/monkey-linter/src/lib.rs::tests.flags_trailing_whitespace" -> "external:rust:std::assert" [label="calls", style="bold"];
   "function:crates/monkey-linter/src/lib.rs::tests.flags_trailing_whitespace" -> "function:crates/monkey-linter/src/lib.rs::lint_monkeyc" [label="calls", style="bold"];
   "function:crates/monkey-linter/src/lib.rs::tests.flags_unreachable_code" -> "external:rust:std::assert_eq" [label="calls", style="bold"];
@@ -10541,11 +10528,11 @@ digraph tracers {
   "function:crates/monkey-lsp/src/lib.rs::tests.toybox_member_hover_shows_api_docs" -> "external:rust:std::as_str" [label="calls", style="bold"];
   "function:crates/monkey-lsp/src/lib.rs::tests.toybox_member_hover_shows_api_docs" -> "external:rust:std::assert" [label="calls", style="bold"];
   "function:crates/monkey-lsp/src/lib.rs::tests.toybox_member_hover_shows_api_docs" -> "external:rust:std::unwrap" [label="calls", style="bold"];
-  "function:crates/monkey-lsp/src/lib.rs::tests.toybox_member_hover_shows_api_docs" -> "external:rust:toybox::ToyboxDb.parse" [label="calls", style="bold"];
   "function:crates/monkey-lsp/src/lib.rs::tests.toybox_member_hover_shows_api_docs" -> "external:unresolved:serde_json::json" [label="calls", style="bold"];
   "function:crates/monkey-lsp/src/lib.rs::tests.toybox_member_hover_shows_api_docs" -> "function:crates/monkey-lsp/src/lib.rs::tests.msg" [label="calls", style="bold"];
   "function:crates/monkey-lsp/src/lib.rs::tests.toybox_member_hover_shows_api_docs" -> "method:crates/monkey-lsp/src/lib.rs::Server.handle" [label="calls", style="bold"];
   "function:crates/monkey-lsp/src/lib.rs::tests.toybox_member_hover_shows_api_docs" -> "method:crates/monkey-lsp/src/lib.rs::Server.new" [label="calls", style="bold"];
+  "function:crates/monkey-lsp/src/lib.rs::tests.toybox_member_hover_shows_api_docs" -> "method:crates/monkey-lsp/src/toybox.rs::ToyboxDb.parse" [label="calls", style="bold"];
   "function:crates/monkey-lsp/src/lib.rs::tests.unknown_request_errors" -> "external:rust:std::Some" [label="calls", style="bold"];
   "function:crates/monkey-lsp/src/lib.rs::tests.unknown_request_errors" -> "external:rust:std::assert_eq" [label="calls", style="bold"];
   "function:crates/monkey-lsp/src/lib.rs::tests.unknown_request_errors" -> "external:unresolved:serde_json::json" [label="calls", style="bold"];
@@ -10668,8 +10655,8 @@ digraph tracers {
   "function:crates/monkey-mcp/src/lib.rs::call_tool" -> "external:rust:serde_json::Value" [label="uses_type", style="dotted"];
   "function:crates/monkey-mcp/src/lib.rs::diagnostics_json" -> "function:crates/monkey-core/src/render.rs::diagnostics_json_all" [label="calls", style="bold"];
   "function:crates/monkey-mcp/src/lib.rs::diagnostics_json" -> "struct:crates/monkey-core/src/render.rs::FileDiagnostics" [label="calls", style="bold"];
+  "function:crates/monkey-mcp/src/lib.rs::diagnostics_json" -> "struct:crates/monkey-core/src/diagnostic.rs::Diagnostic" [label="uses_type", style="dotted"];
   "function:crates/monkey-mcp/src/lib.rs::diagnostics_json" -> "struct:crates/monkey-core/src/render.rs::FileDiagnostics" [label="uses_type", style="dotted"];
-  "function:crates/monkey-mcp/src/lib.rs::diagnostics_json" -> "unresolved:rust:monkey_core::Diagnostic" [label="uses_type", style="dotted"];
   "function:crates/monkey-mcp/src/lib.rs::handle_message" -> "external:rust:std::Some" [label="calls", style="bold"];
   "function:crates/monkey-mcp/src/lib.rs::handle_message" -> "external:rust:std::and_then" [label="calls", style="bold"];
   "function:crates/monkey-mcp/src/lib.rs::handle_message" -> "external:rust:std::cloned" [label="calls", style="bold"];
@@ -12323,7 +12310,7 @@ digraph tracers {
   "method:crates/monkey-lsp/src/lib.rs::Server.call_item" -> "external:rust:std::format" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.call_item" -> "external:unresolved:serde_json::json" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.call_item" -> "external:rust:serde_json::Value" [label="uses_type", style="dotted"];
-  "method:crates/monkey-lsp/src/lib.rs::Server.call_item" -> "unresolved:rust:intel::FnDecl" [label="uses_type", style="dotted"];
+  "method:crates/monkey-lsp/src/lib.rs::Server.call_item" -> "struct:crates/monkey-lsp/src/intel.rs::FnDecl" [label="uses_type", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.code_actions" -> "external:rust:Vec.new" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.code_actions" -> "external:rust:std::push" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.code_actions" -> "external:unresolved:serde_json::json" [label="calls", style="bold"];
@@ -12414,7 +12401,7 @@ digraph tracers {
   "method:crates/monkey-lsp/src/lib.rs::Server.find_fn_decl" -> "method:crates/monkey-lsp/src/lib.rs::Server.project_index" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.find_fn_decl" -> "unresolved:rust:function_decls" [label="calls", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.find_fn_decl" -> "external:rust:serde_json::Value" [label="uses_type", style="dotted"];
-  "method:crates/monkey-lsp/src/lib.rs::Server.find_fn_decl" -> "unresolved:rust:intel::FnDecl" [label="uses_type", style="dotted"];
+  "method:crates/monkey-lsp/src/lib.rs::Server.find_fn_decl" -> "struct:crates/monkey-lsp/src/intel.rs::FnDecl" [label="uses_type", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.formatting_result" -> "method:crates/monkey-lsp/src/lib.rs::Server.doc_text" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.formatting_result" -> "unresolved:rust:formatting" [label="calls", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.formatting_result" -> "external:rust:serde_json::Value" [label="uses_type", style="dotted"];
@@ -12593,7 +12580,6 @@ digraph tracers {
   "method:crates/monkey-lsp/src/lib.rs::Server.prepare_type_hierarchy" -> "external:rust:serde_json::Value" [label="uses_type", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "external:rust:PathBuf.from" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "external:rust:Rc.new" [label="calls", style="bold"];
-  "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "external:rust:index::ProjectIndex.build" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "external:rust:std::Some" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "external:rust:std::and_then" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "external:rust:std::as_ref" [label="calls", style="bold"];
@@ -12607,12 +12593,13 @@ digraph tracers {
   "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "external:rust:std::or_else" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "external:rust:std::path::Path.new" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "external:rust:std::unwrap_or_else" [label="calls", style="bold"];
+  "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "method:crates/monkey-lsp/src/index.rs::ProjectIndex.build" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "unresolved:rust:collect_decls" [label="calls", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "unresolved:rust:find_map" [label="calls", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "unresolved:rust:parent" [label="calls", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "unresolved:rust:uri_to_path" [label="calls", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "external:rust:std::Rc" [label="uses_type", style="dotted"];
-  "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "unresolved:rust:index::ProjectIndex" [label="uses_type", style="dotted"];
+  "method:crates/monkey-lsp/src/lib.rs::Server.project_index" -> "struct:crates/monkey-lsp/src/index.rs::ProjectIndex" [label="uses_type", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.references_result" -> "external:rust:Vec.new" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.references_result" -> "external:rust:std::Some" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.references_result" -> "external:rust:std::and_then" [label="calls", style="bold"];
@@ -12722,8 +12709,8 @@ digraph tracers {
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_doc" -> "external:rust:std::format" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_doc" -> "external:rust:std::is_none" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_doc" -> "external:rust:std::or_else" [label="calls", style="bold"];
-  "method:crates/monkey-lsp/src/lib.rs::Server.toybox_doc" -> "external:rust:toybox::ToyboxDb.load" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_doc" -> "external:unresolved:serde_json::json" [label="calls", style="bold"];
+  "method:crates/monkey-lsp/src/lib.rs::Server.toybox_doc" -> "method:crates/monkey-lsp/src/toybox.rs::ToyboxDb.load" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_doc" -> "unresolved:rust:doc" [label="calls", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_doc" -> "unresolved:rust:find_owner" [label="calls", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_doc" -> "external:rust:serde_json::Value" [label="uses_type", style="dotted"];
@@ -12740,7 +12727,7 @@ digraph tracers {
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_members" -> "external:rust:std::is_none" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_members" -> "external:rust:std::map" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_members" -> "external:rust:std::to_string" [label="calls", style="bold"];
-  "method:crates/monkey-lsp/src/lib.rs::Server.toybox_members" -> "external:rust:toybox::ToyboxDb.load" [label="calls", style="bold"];
+  "method:crates/monkey-lsp/src/lib.rs::Server.toybox_members" -> "method:crates/monkey-lsp/src/toybox.rs::ToyboxDb.load" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_members" -> "unresolved:rust:children_of" [label="calls", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_members" -> "unresolved:rust:find_owner" [label="calls", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_members" -> "unresolved:rust:is_lowercase" [label="calls", style="dotted"];
@@ -12752,7 +12739,7 @@ digraph tracers {
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_return_type" -> "external:rust:std::is_none" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_return_type" -> "external:rust:std::next" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_return_type" -> "external:rust:std::or_else" [label="calls", style="bold"];
-  "method:crates/monkey-lsp/src/lib.rs::Server.toybox_return_type" -> "external:rust:toybox::ToyboxDb.load" [label="calls", style="bold"];
+  "method:crates/monkey-lsp/src/lib.rs::Server.toybox_return_type" -> "method:crates/monkey-lsp/src/toybox.rs::ToyboxDb.load" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_return_type" -> "unresolved:rust:return_type" [label="calls", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.toybox_return_type" -> "unresolved:rust:rsplit" [label="calls", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.type_item" -> "external:rust:std::Some" [label="calls", style="bold"];
@@ -12783,8 +12770,8 @@ digraph tracers {
   "method:crates/monkey-lsp/src/lib.rs::Server.workspace_symbol_result" -> "method:crates/monkey-lsp/src/lib.rs::Server.project_index" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/lib.rs::Server.workspace_symbol_result" -> "unresolved:rust:then_with" [label="calls", style="dotted"];
   "method:crates/monkey-lsp/src/lib.rs::Server.workspace_symbol_result" -> "external:rust:serde_json::Value" [label="uses_type", style="dotted"];
-  "method:crates/monkey-lsp/src/lib.rs::Server.workspace_symbol_result" -> "unresolved:rust:index::IndexedFile" [label="uses_type", style="dotted"];
-  "method:crates/monkey-lsp/src/lib.rs::Server.workspace_symbol_result" -> "unresolved:rust:intel::Decl" [label="uses_type", style="dotted"];
+  "method:crates/monkey-lsp/src/lib.rs::Server.workspace_symbol_result" -> "struct:crates/monkey-lsp/src/index.rs::IndexedFile" [label="uses_type", style="dotted"];
+  "method:crates/monkey-lsp/src/lib.rs::Server.workspace_symbol_result" -> "struct:crates/monkey-lsp/src/intel.rs::Decl" [label="uses_type", style="dotted"];
   "method:crates/monkey-lsp/src/toybox.rs::ToyboxDb.children_of" -> "external:rust:BTreeSet.new" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/toybox.rs::ToyboxDb.children_of" -> "external:rust:std::collect" [label="calls", style="bold"];
   "method:crates/monkey-lsp/src/toybox.rs::ToyboxDb.children_of" -> "external:rust:std::format" [label="calls", style="bold"];
@@ -17476,8 +17463,8 @@ digraph tracers {
   "struct:crates/monkey-lsp/src/lib.rs::Output" -> "external:rust:serde_json::Value" [label="uses_type", style="dotted"];
   "struct:crates/monkey-lsp/src/lib.rs::Server" -> "external:rust:std::PathBuf" [label="uses_type", style="dotted"];
   "struct:crates/monkey-lsp/src/lib.rs::Server" -> "external:rust:std::Rc" [label="uses_type", style="dotted"];
-  "struct:crates/monkey-lsp/src/lib.rs::Server" -> "unresolved:rust:index::ProjectIndex" [label="uses_type", style="dotted"];
-  "struct:crates/monkey-lsp/src/lib.rs::Server" -> "unresolved:rust:toybox::ToyboxDb" [label="uses_type", style="dotted"];
+  "struct:crates/monkey-lsp/src/lib.rs::Server" -> "struct:crates/monkey-lsp/src/index.rs::ProjectIndex" [label="uses_type", style="dotted"];
+  "struct:crates/monkey-lsp/src/lib.rs::Server" -> "struct:crates/monkey-lsp/src/toybox.rs::ToyboxDb" [label="uses_type", style="dotted"];
   "struct:crates/monkey-lsp/src/toybox.rs::ToyboxDb" -> "external:rust:std::BTreeMap" [label="uses_type", style="dotted"];
   "struct:crates/monkey-lsp/src/toybox.rs::ToyboxDb" -> "external:rust:std::BTreeSet" [label="uses_type", style="dotted"];
   "struct:crates/monkey-parser/src/ast.rs::Annotation" -> "enum:crates/monkey-parser/src/ast.rs::Expr" [label="uses_type", style="dotted"];
