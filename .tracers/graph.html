@@ -13017,6 +13017,12 @@
       "language": "typescript"
     },
     {
+      "id": "external:typescript:child_process.spawn",
+      "kind": "external_symbol",
+      "name": "spawn",
+      "language": "typescript"
+    },
+    {
       "id": "external:typescript:expect.toBe",
       "kind": "external_symbol",
       "name": "toBe",
@@ -13038,6 +13044,30 @@
       "id": "external:typescript:expect.toHaveLength",
       "kind": "external_symbol",
       "name": "toHaveLength",
+      "language": "typescript"
+    },
+    {
+      "id": "external:typescript:fs.accessSync",
+      "kind": "external_symbol",
+      "name": "accessSync",
+      "language": "typescript"
+    },
+    {
+      "id": "external:typescript:fs.mkdirSync",
+      "kind": "external_symbol",
+      "name": "mkdirSync",
+      "language": "typescript"
+    },
+    {
+      "id": "external:typescript:fs.readFileSync",
+      "kind": "external_symbol",
+      "name": "readFileSync",
+      "language": "typescript"
+    },
+    {
+      "id": "external:typescript:fs.readdirSync",
+      "kind": "external_symbol",
+      "name": "readdirSync",
       "language": "typescript"
     },
     {
@@ -13296,6 +13326,24 @@
       "id": "external:typescript:node:child_process.ChildProcess",
       "kind": "external_symbol",
       "name": "ChildProcess",
+      "language": "typescript"
+    },
+    {
+      "id": "external:typescript:path.basename",
+      "kind": "external_symbol",
+      "name": "basename",
+      "language": "typescript"
+    },
+    {
+      "id": "external:typescript:path.dirname",
+      "kind": "external_symbol",
+      "name": "dirname",
+      "language": "typescript"
+    },
+    {
+      "id": "external:typescript:path.join",
+      "kind": "external_symbol",
+      "name": "join",
       "language": "typescript"
     },
     {
@@ -43991,12 +44039,6 @@
       "language": "typescript"
     },
     {
-      "id": "unresolved:typescript:accessSync",
-      "kind": "unknown",
-      "name": "accessSync",
-      "language": "typescript"
-    },
-    {
       "id": "unresolved:typescript:affectsConfiguration",
       "kind": "unknown",
       "name": "affectsConfiguration",
@@ -44015,12 +44057,6 @@
       "language": "typescript"
     },
     {
-      "id": "unresolved:typescript:basename",
-      "kind": "unknown",
-      "name": "basename",
-      "language": "typescript"
-    },
-    {
       "id": "unresolved:typescript:createDiagnosticCollection",
       "kind": "unknown",
       "name": "createDiagnosticCollection",
@@ -44030,12 +44066,6 @@
       "id": "unresolved:typescript:createOutputChannel",
       "kind": "unknown",
       "name": "createOutputChannel",
-      "language": "typescript"
-    },
-    {
-      "id": "unresolved:typescript:dirname",
-      "kind": "unknown",
-      "name": "dirname",
       "language": "typescript"
     },
     {
@@ -44093,12 +44123,6 @@
       "language": "typescript"
     },
     {
-      "id": "unresolved:typescript:mkdirSync",
-      "kind": "unknown",
-      "name": "mkdirSync",
-      "language": "typescript"
-    },
-    {
       "id": "unresolved:typescript:on",
       "kind": "unknown",
       "name": "on",
@@ -44141,18 +44165,6 @@
       "language": "typescript"
     },
     {
-      "id": "unresolved:typescript:readFileSync",
-      "kind": "unknown",
-      "name": "readFileSync",
-      "language": "typescript"
-    },
-    {
-      "id": "unresolved:typescript:readdirSync",
-      "kind": "unknown",
-      "name": "readdirSync",
-      "language": "typescript"
-    },
-    {
       "id": "unresolved:typescript:registerCommand",
       "kind": "unknown",
       "name": "registerCommand",
@@ -44192,12 +44204,6 @@
       "id": "unresolved:typescript:showInformationMessage",
       "kind": "unknown",
       "name": "showInformationMessage",
-      "language": "typescript"
-    },
-    {
-      "id": "unresolved:typescript:spawn",
-      "kind": "unknown",
-      "name": "spawn",
       "language": "typescript"
     },
     {
@@ -192268,6 +192274,27 @@
     },
     {
       "source": "function:packages/extensions/vscode/src/commands.ts::projectDir",
+      "target": "external:typescript:path.dirname",
+      "kind": "calls",
+      "status": "resolved_external",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 40,
+            "column": 9,
+            "byte": 1433
+          },
+          "end": {
+            "line": 40,
+            "column": 49,
+            "byte": 1473
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:packages/extensions/vscode/src/commands.ts::projectDir",
       "target": "function:packages/extensions/vscode/src/runtime-preview.ts::findBuildable",
       "kind": "calls",
       "status": "resolved_internal",
@@ -192283,27 +192310,6 @@
             "line": 43,
             "column": 30,
             "byte": 1590
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:packages/extensions/vscode/src/commands.ts::projectDir",
-      "target": "unresolved:typescript:dirname",
-      "kind": "calls",
-      "status": "unresolved",
-      "origin": "syntax",
-      "sites": [
-        {
-          "start": {
-            "line": 40,
-            "column": 9,
-            "byte": 1433
-          },
-          "end": {
-            "line": 40,
-            "column": 49,
-            "byte": 1473
           }
         }
       ]
@@ -192388,6 +192394,27 @@
             "line": 92,
             "column": 72,
             "byte": 3214
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:packages/extensions/vscode/src/commands.ts::run",
+      "target": "external:typescript:child_process.spawn",
+      "kind": "calls",
+      "status": "resolved_external",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 51,
+            "column": 19,
+            "byte": 1833
+          },
+          "end": {
+            "line": 51,
+            "column": 65,
+            "byte": 1879
           }
         }
       ]
@@ -192637,27 +192664,6 @@
             "line": 55,
             "column": 52,
             "byte": 2121
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:packages/extensions/vscode/src/commands.ts::run",
-      "target": "unresolved:typescript:spawn",
-      "kind": "calls",
-      "status": "unresolved",
-      "origin": "syntax",
-      "sites": [
-        {
-          "start": {
-            "line": 51,
-            "column": 19,
-            "byte": 1833
-          },
-          "end": {
-            "line": 51,
-            "column": 65,
-            "byte": 1879
           }
         }
       ]
@@ -195676,7 +195682,7 @@
     },
     {
       "source": "function:packages/extensions/vscode/src/runtime-preview.ts::ensureKey",
-      "target": "external:typescript:lib::join",
+      "target": "external:typescript:path.join",
       "kind": "calls",
       "status": "resolved_external",
       "origin": "lexical",
@@ -195772,10 +195778,10 @@
     },
     {
       "source": "function:packages/extensions/vscode/src/runtime-preview.ts::exists",
-      "target": "unresolved:typescript:accessSync",
+      "target": "external:typescript:fs.accessSync",
       "kind": "calls",
-      "status": "unresolved",
-      "origin": "syntax",
+      "status": "resolved_external",
+      "origin": "lexical",
       "sites": [
         {
           "start": {
@@ -195793,7 +195799,28 @@
     },
     {
       "source": "function:packages/extensions/vscode/src/runtime-preview.ts::findBuildable",
-      "target": "external:typescript:lib::join",
+      "target": "external:typescript:path.dirname",
+      "kind": "calls",
+      "status": "resolved_external",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 57,
+            "column": 20,
+            "byte": 1637
+          },
+          "end": {
+            "line": 57,
+            "column": 37,
+            "byte": 1654
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::findBuildable",
+      "target": "external:typescript:path.join",
       "kind": "calls",
       "status": "resolved_external",
       "origin": "lexical",
@@ -195859,27 +195886,6 @@
     },
     {
       "source": "function:packages/extensions/vscode/src/runtime-preview.ts::findBuildable",
-      "target": "unresolved:typescript:dirname",
-      "kind": "calls",
-      "status": "unresolved",
-      "origin": "syntax",
-      "sites": [
-        {
-          "start": {
-            "line": 57,
-            "column": 20,
-            "byte": 1637
-          },
-          "end": {
-            "line": 57,
-            "column": 37,
-            "byte": 1654
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::findBuildable",
       "target": "interface:packages/extensions/vscode/src/runtime-preview.ts::Buildable",
       "kind": "uses_type",
       "status": "resolved_internal",
@@ -195895,6 +195901,48 @@
             "line": 51,
             "column": 59,
             "byte": 1368
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::findSdk",
+      "target": "external:typescript:fs.readFileSync",
+      "kind": "calls",
+      "status": "resolved_external",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 30,
+            "column": 17,
+            "byte": 734
+          },
+          "end": {
+            "line": 30,
+            "column": 52,
+            "byte": 769
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::findSdk",
+      "target": "external:typescript:fs.readdirSync",
+      "kind": "calls",
+      "status": "resolved_external",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 39,
+            "column": 21,
+            "byte": 1016
+          },
+          "end": {
+            "line": 40,
+            "column": 53,
+            "byte": 1071
           }
         }
       ]
@@ -195949,87 +195997,6 @@
             "line": 22,
             "column": 89,
             "byte": 466
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::findSdk",
-      "target": "external:typescript:lib::join",
-      "kind": "calls",
-      "status": "resolved_external",
-      "origin": "lexical",
-      "sites": [
-        {
-          "start": {
-            "line": 23,
-            "column": 28,
-            "byte": 495
-          },
-          "end": {
-            "line": 23,
-            "column": 67,
-            "byte": 534
-          }
-        },
-        {
-          "start": {
-            "line": 25,
-            "column": 22,
-            "byte": 578
-          },
-          "end": {
-            "line": 28,
-            "column": 4,
-            "byte": 688
-          }
-        },
-        {
-          "start": {
-            "line": 31,
-            "column": 23,
-            "byte": 800
-          },
-          "end": {
-            "line": 31,
-            "column": 55,
-            "byte": 832
-          }
-        },
-        {
-          "start": {
-            "line": 34,
-            "column": 19,
-            "byte": 870
-          },
-          "end": {
-            "line": 37,
-            "column": 4,
-            "byte": 969
-          }
-        },
-        {
-          "start": {
-            "line": 42,
-            "column": 19,
-            "byte": 1128
-          },
-          "end": {
-            "line": 42,
-            "column": 45,
-            "byte": 1154
-          }
-        },
-        {
-          "start": {
-            "line": 43,
-            "column": 29,
-            "byte": 1184
-          },
-          "end": {
-            "line": 43,
-            "column": 59,
-            "byte": 1214
           }
         }
       ]
@@ -196114,6 +196081,87 @@
             "line": 30,
             "column": 59,
             "byte": 776
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::findSdk",
+      "target": "external:typescript:path.join",
+      "kind": "calls",
+      "status": "resolved_external",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 23,
+            "column": 28,
+            "byte": 495
+          },
+          "end": {
+            "line": 23,
+            "column": 67,
+            "byte": 534
+          }
+        },
+        {
+          "start": {
+            "line": 25,
+            "column": 22,
+            "byte": 578
+          },
+          "end": {
+            "line": 28,
+            "column": 4,
+            "byte": 688
+          }
+        },
+        {
+          "start": {
+            "line": 31,
+            "column": 23,
+            "byte": 800
+          },
+          "end": {
+            "line": 31,
+            "column": 55,
+            "byte": 832
+          }
+        },
+        {
+          "start": {
+            "line": 34,
+            "column": 19,
+            "byte": 870
+          },
+          "end": {
+            "line": 37,
+            "column": 4,
+            "byte": 969
+          }
+        },
+        {
+          "start": {
+            "line": 42,
+            "column": 19,
+            "byte": 1128
+          },
+          "end": {
+            "line": 42,
+            "column": 45,
+            "byte": 1154
+          }
+        },
+        {
+          "start": {
+            "line": 43,
+            "column": 29,
+            "byte": 1184
+          },
+          "end": {
+            "line": 43,
+            "column": 59,
+            "byte": 1214
           }
         }
       ]
@@ -196230,43 +196278,22 @@
       ]
     },
     {
-      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::findSdk",
-      "target": "unresolved:typescript:readFileSync",
+      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::run",
+      "target": "external:typescript:child_process.spawn",
       "kind": "calls",
-      "status": "unresolved",
-      "origin": "syntax",
+      "status": "resolved_external",
+      "origin": "lexical",
       "sites": [
         {
           "start": {
-            "line": 30,
-            "column": 17,
-            "byte": 734
+            "line": 82,
+            "column": 19,
+            "byte": 2516
           },
           "end": {
-            "line": 30,
-            "column": 52,
-            "byte": 769
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::findSdk",
-      "target": "unresolved:typescript:readdirSync",
-      "kind": "calls",
-      "status": "unresolved",
-      "origin": "syntax",
-      "sites": [
-        {
-          "start": {
-            "line": 39,
-            "column": 21,
-            "byte": 1016
-          },
-          "end": {
-            "line": 40,
-            "column": 53,
-            "byte": 1071
+            "line": 82,
+            "column": 65,
+            "byte": 2562
           }
         }
       ]
@@ -196453,6 +196480,27 @@
     },
     {
       "source": "function:packages/extensions/vscode/src/runtime-preview.ts::run",
+      "target": "external:typescript:path.basename",
+      "kind": "calls",
+      "status": "resolved_external",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 87,
+            "column": 52,
+            "byte": 2842
+          },
+          "end": {
+            "line": 87,
+            "column": 70,
+            "byte": 2860
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::run",
       "target": "unresolved:typescript:append",
       "kind": "calls",
       "status": "unresolved",
@@ -196501,27 +196549,6 @@
             "line": 81,
             "column": 97,
             "byte": 2496
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::run",
-      "target": "unresolved:typescript:basename",
-      "kind": "calls",
-      "status": "unresolved",
-      "origin": "syntax",
-      "sites": [
-        {
-          "start": {
-            "line": 87,
-            "column": 52,
-            "byte": 2842
-          },
-          "end": {
-            "line": 87,
-            "column": 70,
-            "byte": 2860
           }
         }
       ]
@@ -196585,27 +196612,6 @@
     },
     {
       "source": "function:packages/extensions/vscode/src/runtime-preview.ts::run",
-      "target": "unresolved:typescript:spawn",
-      "kind": "calls",
-      "status": "unresolved",
-      "origin": "syntax",
-      "sites": [
-        {
-          "start": {
-            "line": 82,
-            "column": 19,
-            "byte": 2516
-          },
-          "end": {
-            "line": 82,
-            "column": 65,
-            "byte": 2562
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::run",
       "target": "external:typescript:lib::Promise",
       "kind": "uses_type",
       "status": "resolved_external",
@@ -196642,6 +196648,48 @@
             "line": 78,
             "column": 31,
             "byte": 2335
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::runtimePreview",
+      "target": "external:typescript:child_process.spawn",
+      "kind": "calls",
+      "status": "resolved_external",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 154,
+            "column": 11,
+            "byte": 5076
+          },
+          "end": {
+            "line": 154,
+            "column": 91,
+            "byte": 5156
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::runtimePreview",
+      "target": "external:typescript:fs.mkdirSync",
+      "kind": "calls",
+      "status": "resolved_external",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 130,
+            "column": 3,
+            "byte": 4278
+          },
+          "end": {
+            "line": 130,
+            "column": 44,
+            "byte": 4319
           }
         }
       ]
@@ -196735,7 +196783,82 @@
     },
     {
       "source": "function:packages/extensions/vscode/src/runtime-preview.ts::runtimePreview",
-      "target": "external:typescript:lib::join",
+      "target": "external:typescript:lib::setTimeout",
+      "kind": "calls",
+      "status": "resolved_external",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 158,
+            "column": 34,
+            "byte": 5276
+          },
+          "end": {
+            "line": 158,
+            "column": 53,
+            "byte": 5295
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::runtimePreview",
+      "target": "external:typescript:path.basename",
+      "kind": "calls",
+      "status": "resolved_external",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 129,
+            "column": 36,
+            "byte": 4239
+          },
+          "end": {
+            "line": 129,
+            "column": 64,
+            "byte": 4267
+          }
+        },
+        {
+          "start": {
+            "line": 164,
+            "column": 37,
+            "byte": 5517
+          },
+          "end": {
+            "line": 164,
+            "column": 65,
+            "byte": 5545
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::runtimePreview",
+      "target": "external:typescript:path.dirname",
+      "kind": "calls",
+      "status": "resolved_external",
+      "origin": "lexical",
+      "sites": [
+        {
+          "start": {
+            "line": 107,
+            "column": 35,
+            "byte": 3454
+          },
+          "end": {
+            "line": 107,
+            "column": 75,
+            "byte": 3494
+          }
+        }
+      ]
+    },
+    {
+      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::runtimePreview",
+      "target": "external:typescript:path.join",
       "kind": "calls",
       "status": "resolved_external",
       "origin": "lexical",
@@ -196810,27 +196933,6 @@
             "line": 129,
             "column": 71,
             "byte": 4274
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::runtimePreview",
-      "target": "external:typescript:lib::setTimeout",
-      "kind": "calls",
-      "status": "resolved_external",
-      "origin": "lexical",
-      "sites": [
-        {
-          "start": {
-            "line": 158,
-            "column": 34,
-            "byte": 5276
-          },
-          "end": {
-            "line": 158,
-            "column": 53,
-            "byte": 5295
           }
         }
       ]
@@ -196990,39 +197092,6 @@
     },
     {
       "source": "function:packages/extensions/vscode/src/runtime-preview.ts::runtimePreview",
-      "target": "unresolved:typescript:basename",
-      "kind": "calls",
-      "status": "unresolved",
-      "origin": "syntax",
-      "sites": [
-        {
-          "start": {
-            "line": 129,
-            "column": 36,
-            "byte": 4239
-          },
-          "end": {
-            "line": 129,
-            "column": 64,
-            "byte": 4267
-          }
-        },
-        {
-          "start": {
-            "line": 164,
-            "column": 37,
-            "byte": 5517
-          },
-          "end": {
-            "line": 164,
-            "column": 65,
-            "byte": 5545
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::runtimePreview",
       "target": "unresolved:typescript:createOutputChannel",
       "kind": "calls",
       "status": "unresolved",
@@ -197044,27 +197113,6 @@
     },
     {
       "source": "function:packages/extensions/vscode/src/runtime-preview.ts::runtimePreview",
-      "target": "unresolved:typescript:dirname",
-      "kind": "calls",
-      "status": "unresolved",
-      "origin": "syntax",
-      "sites": [
-        {
-          "start": {
-            "line": 107,
-            "column": 35,
-            "byte": 3454
-          },
-          "end": {
-            "line": 107,
-            "column": 75,
-            "byte": 3494
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::runtimePreview",
       "target": "unresolved:typescript:getConfiguration",
       "kind": "calls",
       "status": "unresolved",
@@ -197080,27 +197128,6 @@
             "line": 115,
             "column": 49,
             "byte": 3753
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::runtimePreview",
-      "target": "unresolved:typescript:mkdirSync",
-      "kind": "calls",
-      "status": "unresolved",
-      "origin": "syntax",
-      "sites": [
-        {
-          "start": {
-            "line": 130,
-            "column": 3,
-            "byte": 4278
-          },
-          "end": {
-            "line": 130,
-            "column": 44,
-            "byte": 4319
           }
         }
       ]
@@ -197257,27 +197284,6 @@
             "line": 165,
             "column": 6,
             "byte": 5567
-          }
-        }
-      ]
-    },
-    {
-      "source": "function:packages/extensions/vscode/src/runtime-preview.ts::runtimePreview",
-      "target": "unresolved:typescript:spawn",
-      "kind": "calls",
-      "status": "unresolved",
-      "origin": "syntax",
-      "sites": [
-        {
-          "start": {
-            "line": 154,
-            "column": 11,
-            "byte": 5076
-          },
-          "end": {
-            "line": 154,
-            "column": 91,
-            "byte": 5156
           }
         }
       ]
@@ -292414,17 +292420,17 @@
   "statistics": {
     "files": 126,
     "packages": 5,
-    "nodes": 4218,
+    "nodes": 4219,
     "edges": 13328,
     "symbols": 3237,
-    "unresolvedEdges": 689,
+    "unresolvedEdges": 677,
     "diagnostics": 20,
     "byNodeKind": {
       "class": 2,
       "constant": 464,
       "constructor": 2,
       "enum": 18,
-      "external_symbol": 374,
+      "external_symbol": 382,
       "file": 126,
       "framework": 7,
       "function": 500,
@@ -292437,7 +292443,7 @@
       "struct": 78,
       "trait": 1,
       "type": 2,
-      "unknown": 297,
+      "unknown": 290,
       "variable": 1568
     },
     "byEdgeKind": {
@@ -292457,12 +292463,12 @@
       "markdown": 72,
       "rust": 3141,
       "tsx": 262,
-      "typescript": 447
+      "typescript": 448
     },
     "byStatus": {
-      "resolved_external": 3070,
+      "resolved_external": 3082,
       "resolved_internal": 9569,
-      "unresolved": 689
+      "unresolved": 677
     },
     "byFramework": {
       "config-rs": 1,
