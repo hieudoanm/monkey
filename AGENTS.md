@@ -24,7 +24,7 @@ Garmin Connect IQ.
 - `packages/extensions/zed/` — Zed extension for Monkey C/Jungle (Tree-sitter, theme, icons, formatter CLI, runtime-preview task). Has its own `AGENTS.md` and README.
 - `packages/landing/` — Next.js static-export landing page deployed to GitHub Pages. Has its own `AGENTS.md`.
 - `scripts/` — repo-level helper scripts (`install.sh`, `install-local.sh`).
-- `.github/workflows/ci.yaml` — tests the toolchain and extensions; on `master`/`main` publishes the rolling `latest` release with `cli-monkey-*` CLI binaries, `extension-monkey-c.vsix`, and `extension-monkey-c-zed.zip`.
+- `.github/workflows/ci.yaml` — tests the toolchain and extensions; on `master`/`main` publishes the rolling `latest` release with `cli-monkey-*` CLI binaries, `extension-vscode-monkey-c.vsix`, and `extension-zed-monkey-c.zip`.
 
 ## Working conventions
 
@@ -91,7 +91,7 @@ pnpm run build   # static export → out/
 ## CI/release
 
 - CI triggers on changes under `crates/**`, `packages/extensions/vscode/**`, `packages/extensions/zed/**`, `packages/landing/**`, `scripts/**`, and workflow dispatch.
-- On pushes to `master`/`main`, CI updates GitHub release tag `latest` with `extension-monkey-c.vsix`, `extension-monkey-c-zed.zip`, and `cli-monkey-*` CLI binaries; release notes come from `RELEASE.md`.
+- On pushes to `master`/`main`, CI updates GitHub release tag `latest` with `extension-vscode-monkey-c.vsix`, `extension-zed-monkey-c.zip`, and `cli-monkey-*` CLI binaries; release notes come from `RELEASE.md`.
 - Be careful changing `.github/workflows/ci.yaml`: pnpm must be available before `actions/setup-node` when using `cache: pnpm`.
 
 ## Docs

@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 };
 
 const GITHUB = 'https://github.com/hieudoanm/monkey';
-const VSIX = `${GITHUB}/releases/download/latest/extension-monkey-c.vsix`;
+const VSIX = `${GITHUB}/releases/download/latest/extension-vscode-monkey-c.vsix`;
 const CLI_LATEST = `${GITHUB}/releases/download/latest`;
 
 const FEATURES: Feature[] = [
@@ -130,7 +130,7 @@ const STEPS = [
   {
     title: 'Wire up your editor',
     body: 'Install the VS Code .vsix, or load packages/extensions/zed as a dev extension in Zed. Formatters share the same rules as the CLI.',
-    snippet: 'code --install-extension extension-monkey-c.vsix',
+    snippet: 'code --install-extension extension-vscode-monkey-c.vsix',
   },
   {
     title: 'Preview in the simulator',
@@ -145,8 +145,8 @@ const INSTALL_LINES = [
   '$ chmod +x cli-monkey-x86_64-unknown-linux-gnu && mv cli-monkey-x86_64-unknown-linux-gnu ~/.local/bin/monkey',
   '',
   '# VS Code extension',
-  '$ curl -fsSLO https://github.com/hieudoanm/monkey/releases/latest/download/extension-monkey-c.vsix',
-  '$ code --install-extension extension-monkey-c.vsix',
+  '$ curl -fsSLO https://github.com/hieudoanm/monkey/releases/latest/download/extension-vscode-monkey-c.vsix',
+  '$ code --install-extension extension-vscode-monkey-c.vsix',
 ];
 
 const StepCard: FC<{ step: (typeof STEPS)[number]; index: number }> = ({
@@ -284,7 +284,7 @@ const HomePage: NextPage = () => (
           For Zed: open the Extensions page, choose{' '}
           <em>Install Dev Extension</em>, and select packages/extensions/zed —{' '}
           or use the{' '}
-          <code className="font-mono text-xs">extension-monkey-c-zed.zip</code>{' '}
+          <code className="font-mono text-xs">extension-zed-monkey-c.zip</code>{' '}
           asset as a source snapshot. See the{' '}
           <a
             href={`${GITHUB}#readme`}

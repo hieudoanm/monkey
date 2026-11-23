@@ -69,13 +69,13 @@ install_cli() {
 install_vscode() {
     if ! command -v code >/dev/null 2>&1; then
         echo "VS Code CLI ('code') not found — skipping extension install."
-        echo "  Install manually: ${BASE_URL}/extension-monkey-c.vsix"
+        echo "  Install manually: ${BASE_URL}/extension-vscode-monkey-c.vsix"
         return 0
     fi
 
-    echo "Downloading extension-monkey-c.vsix..."
-    if ! curl -fsSL "${BASE_URL}/extension-monkey-c.vsix" -o "$TMP_DIR/monkey-c.vsix"; then
-        echo "error: could not download ${BASE_URL}/extension-monkey-c.vsix" >&2
+    echo "Downloading extension-vscode-monkey-c.vsix..."
+    if ! curl -fsSL "${BASE_URL}/extension-vscode-monkey-c.vsix" -o "$TMP_DIR/monkey-c.vsix"; then
+        echo "error: could not download ${BASE_URL}/extension-vscode-monkey-c.vsix" >&2
         return 1
     fi
     code --install-extension "$TMP_DIR/monkey-c.vsix" --force
@@ -85,9 +85,9 @@ install_vscode() {
 # ---------- Zed ----------
 install_zed() {
     local dest="$HOME/.local/share/monkey/zed-extension"
-    echo "Downloading extension-monkey-c-zed.zip..."
-    if ! curl -fsSL "${BASE_URL}/extension-monkey-c-zed.zip" -o "$TMP_DIR/monkey-c-zed.zip"; then
-        echo "error: could not download ${BASE_URL}/extension-monkey-c-zed.zip" >&2
+    echo "Downloading extension-zed-monkey-c.zip..."
+    if ! curl -fsSL "${BASE_URL}/extension-zed-monkey-c.zip" -o "$TMP_DIR/monkey-c-zed.zip"; then
+        echo "error: could not download ${BASE_URL}/extension-zed-monkey-c.zip" >&2
         return 1
     fi
     mkdir -p "$dest"

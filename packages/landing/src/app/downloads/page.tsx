@@ -37,21 +37,30 @@ const CLI: Platform[] = [
     name: 'macOS',
     icon: FaApple,
     assets: [
-      { label: 'Apple Silicon', href: `${RELEASES}/cli-monkey-aarch64-apple-darwin` },
+      {
+        label: 'Apple Silicon',
+        href: `${RELEASES}/cli-monkey-aarch64-apple-darwin`,
+      },
     ],
   },
   {
     name: 'Windows',
     icon: FaWindows,
     assets: [
-      { label: '.exe', href: `${RELEASES}/cli-monkey-x86_64-pc-windows-msvc.exe` },
+      {
+        label: '.exe',
+        href: `${RELEASES}/cli-monkey-x86_64-pc-windows-msvc.exe`,
+      },
     ],
   },
   {
     name: 'Linux',
     icon: FaLinux,
     assets: [
-      { label: 'x86_64', href: `${RELEASES}/cli-monkey-x86_64-unknown-linux-gnu` },
+      {
+        label: 'x86_64',
+        href: `${RELEASES}/cli-monkey-x86_64-unknown-linux-gnu`,
+      },
     ],
   },
 ];
@@ -59,11 +68,11 @@ const CLI: Platform[] = [
 const EXTENSIONS: Asset[] = [
   {
     label: 'VS Code extension (.vsix)',
-    href: `${RELEASES}/extension-monkey-c.vsix`,
+    href: `${RELEASES}/extension-vscode-monkey-c.vsix`,
   },
   {
     label: 'Zed extension (.zip)',
-    href: `${RELEASES}/extension-monkey-c-zed.zip`,
+    href: `${RELEASES}/extension-zed-monkey-c.zip`,
   },
 ];
 
@@ -71,7 +80,9 @@ function PlatformGrid({ platforms }: { platforms: Platform[] }) {
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
       {platforms.map((p) => (
-        <div key={p.name} className="card border-base-300 bg-base-100 border p-6">
+        <div
+          key={p.name}
+          className="card border-base-300 bg-base-100 border p-6">
           <div className="bg-primary/10 text-primary mb-3.5 flex h-11 w-11 items-center justify-center rounded-lg">
             <p.icon className="h-6 w-6" />
           </div>
@@ -80,7 +91,10 @@ function PlatformGrid({ platforms }: { platforms: Platform[] }) {
           </h3>
           <div className="mt-4 flex flex-col gap-2">
             {p.assets.map((a) => (
-              <a key={a.href} href={a.href} className="btn btn-primary btn-sm gap-2">
+              <a
+                key={a.href}
+                href={a.href}
+                className="btn btn-primary btn-sm gap-2">
                 <FaDownload className="h-3.5 w-3.5" />
                 {a.label}
               </a>
@@ -125,7 +139,10 @@ const Downloads: FC = () => (
         <div className="border-base-300 bg-base-200/50 mb-12 rounded-2xl border p-6">
           <div className="flex flex-col gap-2 sm:flex-row">
             {EXTENSIONS.map((a) => (
-              <a key={a.href} href={a.href} className="btn btn-primary btn-sm gap-2">
+              <a
+                key={a.href}
+                href={a.href}
+                className="btn btn-primary btn-sm gap-2">
                 <FaDownload className="h-3.5 w-3.5" />
                 {a.label}
               </a>
