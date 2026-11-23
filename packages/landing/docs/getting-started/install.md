@@ -31,13 +31,13 @@ monkey --help
 
 ## VS Code
 
-Download `extension-monkey-c.vsix` from the
+Download `extension-vscode-monkey-c.vsix` from the
 [latest release](https://github.com/hieudoanm/monkey/releases/tag/latest) and
 install it:
 
 ```bash
-curl -fsSLO https://github.com/hieudoanm/monkey/releases/latest/download/extension-monkey-c.vsix
-code --install-extension extension-monkey-c.vsix
+curl -fsSLO https://github.com/hieudoanm/monkey/releases/latest/download/extension-vscode-monkey-c.vsix
+code --install-extension extension-vscode-monkey-c.vsix
 ```
 
 Or build from source:
@@ -62,5 +62,5 @@ cd monkey/packages/extensions/zed
 Then in Zed: **Extensions → Install Dev Extension** and select
 `packages/extensions/zed`.
 
-The `extension-monkey-c-zed.zip` release asset is a source snapshot of the same
+The `extension-zed-monkey-c.zip` release asset is a source snapshot of the same
 directory if you prefer not to clone.

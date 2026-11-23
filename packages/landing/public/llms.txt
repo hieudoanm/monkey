@@ -10,10 +10,10 @@ This repository provides:
   for Linux, macOS, and Windows on the rolling `latest` GitHub release.
 - **VS Code extension** (`packages/extensions/vscode`) — syntax highlighting,
   document formatting, dark theme, file icons, and Connect IQ simulator
-  preview. Distributed as `extension-monkey-c.vsix`.
+  preview. Distributed as `extension-vscode-monkey-c.vsix`.
 - **Zed extension** (`packages/extensions/zed`) — Tree-sitter languages,
   external formatter, theme/icons, and runtime-preview tasks. Installed as a
-  dev extension; `extension-monkey-c-zed.zip` is a source snapshot.
+  dev extension; `extension-zed-monkey-c.zip` is a source snapshot.
 
 ## Key pages
 
@@ -30,7 +30,7 @@ This repository provides:
 
 - Repository: https://github.com/hieudoanm/monkey
 - Releases: https://github.com/hieudoanm/monkey/releases/tag/latest
-- VSIX: https://github.com/hieudoanm/monkey/releases/download/latest/extension-monkey-c.vsix
+- VSIX: https://github.com/hieudoanm/monkey/releases/download/latest/extension-vscode-monkey-c.vsix
 
 ## Facts for language models
 

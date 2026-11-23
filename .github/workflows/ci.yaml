@@ -73,13 +73,13 @@ jobs:
         run: ../../../crates/target/release/monkey check ../../..
 
       - name: Package extension
-        run: pnpm exec vsce package --no-dependencies --out extension-monkey-c.vsix
+        run: pnpm exec vsce package --no-dependencies --out extension-vscode-monkey-c.vsix
 
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v7.0.2
         with:
           name: extension-vscode-vsix
-          path: packages/extensions/vscode/extension-monkey-c.vsix
+          path: packages/extensions/vscode/extension-vscode-monkey-c.vsix
           if-no-files-found: error
 
   extension-zed:
@@ -114,13 +114,13 @@ jobs:
       # artifact is a source zip of the extension directory.
       - name: Package extension
         working-directory: packages/extensions/zed
-        run: zip -r extension-monkey-c-zed.zip . -x '*node_modules*' '.git/*'
+        run: zip -r extension-zed-monkey-c.zip . -x '*node_modules*' '.git/*'
 
       - name: Upload extension artifact
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: extension-zed-package
-          path: packages/extensions/zed/extension-monkey-c-zed.zip
+          name: extension-zed-zip
+          path: packages/extensions/zed/extension-zed-monkey-c.zip
           if-no-files-found: error
 
   cli-quality:
@@ -218,7 +218,7 @@ jobs:
       - name: Download Zed extension artifact
         uses: actions/download-artifact@v8.0.2
         with:
-          name: extension-zed-package
+          name: extension-zed-zip
           path: dist
 
       - name: Download CLI binaries

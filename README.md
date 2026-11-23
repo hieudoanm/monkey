@@ -30,9 +30,9 @@ Or install each piece manually:
   [latest release](https://github.com/hieudoanm/monkey/releases/tag/latest) and
   put it on your `PATH` (e.g. `~/.local/bin`), or build from source:
   `cargo install --path crates/monkey-cli`.
-- **VS Code**: install `extension-monkey-c.vsix` from the same release, or
+- **VS Code**: install `extension-vscode-monkey-c.vsix` from the same release, or
   build with `pnpm run package` inside `packages/extensions/vscode`.
-- **Zed**: install `extension-monkey-c-zed.zip` from the same release, or add
+- **Zed**: install `extension-zed-monkey-c.zip` from the same release, or add
   the extension as a dev extension (see `packages/extensions/zed/README.md`).
 
 Verify your setup with `monkey doctor` — it checks the SDK, developer key,
