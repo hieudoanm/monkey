@@ -22,6 +22,7 @@ Garmin Connect IQ.
   - `monkey-cli` — `monkey` binary: `format`, `lint`, `check`, `tokens`, `parse`, `doctor`, `sdk`, `device`, `project`, `build`, `run`, `mcp`, `lsp` subcommands.
 - `packages/extensions/vscode/` — VS Code extension for Monkey C/Jungle (TypeScript). Has its own `AGENTS.md` and README.
 - `packages/extensions/zed/` — Zed extension for Monkey C/Jungle (Tree-sitter, theme, icons, formatter CLI, runtime-preview task). Has its own `AGENTS.md` and README.
+- `packages/extensions/jetbrains/` — JetBrains IDE plugin (Kotlin/IntelliJ Platform): file types, highlighting, lint inspections, CLI actions. Has its own `AGENTS.md` and README.
 - `packages/landing/` — Next.js static-export landing page deployed to GitHub Pages. Has its own `AGENTS.md`.
 - `scripts/` — repo-level helper scripts (`install.sh`, `install-local.sh`).
 - `.github/workflows/ci.yaml` — tests the toolchain and extensions; on `master`/`main` publishes the rolling `latest` release with `cli-monkey-*` CLI binaries, `extension-vscode-monkey-c.vsix`, and `extension-zed-monkey-c.tar.gz`.
@@ -90,7 +91,7 @@ pnpm run build   # static export → out/
 
 ## CI/release
 
-- CI triggers on changes under `crates/**`, `packages/extensions/vscode/**`, `packages/extensions/zed/**`, `packages/landing/**`, `scripts/**`, and workflow dispatch.
+- CI triggers on changes under `crates/**`, `packages/extensions/vscode/**`, `packages/extensions/zed/**`, `packages/extensions/jetbrains/**`, `packages/landing/**`, `scripts/**`, and workflow dispatch.
 - On pushes to `master`/`main`, CI updates GitHub release tag `latest` with `extension-vscode-monkey-c.vsix`, `extension-zed-monkey-c.tar.gz`, and `cli-monkey-*` CLI binaries; release notes come from `RELEASE.md`.
 - Be careful changing `.github/workflows/ci.yaml`: pnpm must be available before `actions/setup-node` when using `cache: pnpm`.
 

@@ -278,8 +278,14 @@ fn cmd_format(args: &[String]) -> ExitCode {
     let use_stdin = args.iter().any(|a| a == "--stdin");
 
     if use_stdin {
+        // `format --stdin [label]` — the label picks the formatter
+        // (`.jungle` vs Monkey C), same convention as `lint --stdin`.
+        let label = positional(args)
+            .last()
+            .cloned()
+            .unwrap_or_else(|| "stdin.mc".to_string());
         let src = read_stdin();
-        print!("{}", format_source(&src, "stdin.mc", &opts));
+        print!("{}", format_source(&src, &label, &opts));
         return ExitCode::SUCCESS;
     }
 

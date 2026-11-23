@@ -10,6 +10,7 @@ import {
   FaTerminal,
   FaWindows,
 } from 'react-icons/fa';
+import { SiJetbrains } from 'react-icons/si';
 
 export const metadata: Metadata = {
   title: 'Downloads',
@@ -98,6 +99,19 @@ const EDITOR_EXT: Cell[] = [
       {
         label: 'Zed (.tar.gz)',
         href: `${RELEASES}/extension-zed-monkey-c.tar.gz`,
+      },
+    ],
+  },
+  {
+    name: 'JetBrains',
+    icon: SiJetbrains,
+    desc: 'IntelliJ Platform plugin for JetBrains IDEs.',
+    assets: [
+      {
+        // Versioned asset name — bump together with pluginVersion in
+        // packages/extensions/jetbrains/gradle.properties.
+        label: 'JetBrains (.zip)',
+        href: `${RELEASES}/extension-jetbrains-monkey-c-0.0.1.zip`,
       },
     ],
   },

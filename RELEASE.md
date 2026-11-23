@@ -30,6 +30,11 @@ on `PATH` (configurable via `monkeyC.cliPath`).
 `extension-zed-monkey-c.tar.gz` asset as a source snapshot. The lint/check tasks
 also need the `monkey` CLI on `PATH`.
 
+**JetBrains:** download `extension-jetbrains-monkey-c-<version>.zip` and install
+via **Settings → Plugins → Install Plugin from Disk**. File types, syntax
+highlighting, lint inspections, formatting, and CLI actions; needs the `monkey`
+CLI on `PATH`.
+
 ### What's in this release
 
 - `monkey` — standalone CLI for `*.mc`/`*.jungle` files. Subcommands:
@@ -56,6 +61,10 @@ also need the `monkey` CLI on `PATH`.
 - `extension-zed-monkey-c.tar.gz` — Zed extension source (Tree-sitter languages,
   formatter, lint/check tasks, theme, icon theme). Install via `zed: install`
   from a local checkout or the extension registry.
+- `extension-jetbrains-monkey-c-<version>.zip` — JetBrains IDE plugin
+  (IntelliJ Platform): Monkey C/Jungle file types, syntax highlighting, lint
+  inspections via `monkey lint`, document formatting, and build/run/test/export
+  actions. Install from disk in any JetBrains IDE 2024.3+.
 - Companion Zed extension lives in the same repo.
 
 ### Build from source
