@@ -3,6 +3,7 @@ import type { FC, ReactNode } from 'react';
 import type { IconType } from 'react-icons';
 import {
   FaApple,
+  FaBrain,
   FaCode,
   FaDownload,
   FaLinux,
@@ -117,6 +118,8 @@ const EDITOR_EXT: Cell[] = [
   },
 ];
 
+const MODELS: Cell[] = [];
+
 function Section({
   icon: Icon,
   title,
@@ -198,6 +201,12 @@ const Downloads: FC = () => (
         <Section icon={FaPuzzlePiece} title="Editor Extensions">
           <CardGrid cells={EDITOR_EXT} cols="lg:grid-cols-3" />
         </Section>
+
+        {MODELS.length > 0 && (
+          <Section icon={FaBrain} title="Models">
+            <CardGrid cells={MODELS} cols="lg:grid-cols-3" />
+          </Section>
+        )}
 
         <p className="text-base-content/60 mt-8 text-center text-sm">
           Or build the CLI from source:{' '}
