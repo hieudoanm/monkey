@@ -27,7 +27,7 @@ on `PATH` (configurable via `monkeyC.cliPath`).
 
 **Zed:** the extension is declarative — clone the repo and run
 `./scripts/install.sh` inside `packages/extensions/zed`, or use the
-`extension-zed-monkey-c.zip` asset as a source snapshot. The lint/check tasks
+`extension-zed-monkey-c.tar.gz` asset as a source snapshot. The lint/check tasks
 also need the `monkey` CLI on `PATH`.
 
 ### What's in this release
@@ -53,7 +53,7 @@ also need the `monkey` CLI on `PATH`.
 - `extension-vscode-monkey-c.vsix` — VS Code extension with syntax highlighting,
   document formatting, inline lint diagnostics (persistent `monkey lint --serve` process),
   a dark theme, file icons, and a runtime-preview command.
-- `extension-zed-monkey-c.zip` — Zed extension source (Tree-sitter languages,
+- `extension-zed-monkey-c.tar.gz` — Zed extension source (Tree-sitter languages,
   formatter, lint/check tasks, theme, icon theme). Install via `zed: install`
   from a local checkout or the extension registry.
 - Companion Zed extension lives in the same repo.

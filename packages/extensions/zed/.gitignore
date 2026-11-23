@@ -2,3 +2,4 @@
 node_modules/
 grammars/*/node_modules/
 grammars/*/build/
+download/

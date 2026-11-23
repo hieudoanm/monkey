@@ -62,5 +62,5 @@ cd monkey/packages/extensions/zed
 Then in Zed: **Extensions → Install Dev Extension** and select
 `packages/extensions/zed`.
 
-The `extension-zed-monkey-c.zip` release asset is a source snapshot of the same
+The `extension-zed-monkey-c.tar.gz` release asset is a source snapshot of the same
 directory if you prefer not to clone.
