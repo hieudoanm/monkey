@@ -138,7 +138,7 @@ function CardGrid({ cells, cols }: { cells: Cell[]; cols: string }) {
           <h3 className="text-base-content m-0 text-lg leading-tight">
             {c.name}
           </h3>
-          <p className="text-base-content/60 mt-1 line-clamp-2 text-sm">
+          <p className="text-base-content/60 mt-1 truncate text-sm">
             {c.desc}
           </p>
           <div className="mt-4 flex flex-col gap-2">
