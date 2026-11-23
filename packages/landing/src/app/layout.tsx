@@ -17,6 +17,7 @@ const NAV_LINKS = [
   { label: 'Extensions', href: '#extensions' },
   { label: 'Install', href: '#install' },
   { label: 'Docs', href: '/docs/' },
+  { label: 'Downloads', href: '/downloads/' },
 ];
 
 const DESCRIPTION =
