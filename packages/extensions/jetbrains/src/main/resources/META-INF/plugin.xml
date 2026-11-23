@@ -1,0 +1,106 @@
+<idea-plugin>
+    <id>io.github.hieudoanm.monkey.idea</id>
+    <name>Monkey C</name>
+    <vendor>hieudoanm</vendor>
+    <description><![CDATA[
+        Monkey C and Jungle support for Connect IQ development.
+
+        Provides file types and syntax highlighting for Monkey C (.mc, .mb,
+        .mcgen) and Jungle (.jungle) files, lint diagnostics powered by the
+        `monkey` CLI (`monkey lint --stdin`), document formatting, and
+        project actions: new project, build, run, test, export .iq, debug,
+        clean, project info, and doctor.
+
+        Requires the `monkey` CLI on PATH (configurable in
+        Settings → Tools → Monkey C). Connect IQ SDK workflows additionally
+        need the official Garmin SDK and a developer key.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType
+            name="Monkey C"
+            implementationClass="com.monkey.idea.MonkeyCFileType"
+            fieldName="MONKEY_C_FILE_TYPE"
+            language="MonkeyC"
+            extensions="mc,mb,mcgen"
+            description="Monkey C source file"
+            defaultExtension="mc"/>
+
+        <fileType
+            name="Jungle"
+            implementationClass="com.monkey.idea.JungleFileType"
+            fieldName="JUNGLE_FILE_TYPE"
+            language="Jungle"
+            extensions="jungle"
+            description="Connect IQ Jungle project file"
+            defaultExtension="jungle"/>
+
+        <syntaxHighlighterFactory
+            implementation="com.monkey.idea.MonkeyCSyntaxHighlighterFactory"
+            language="MonkeyC"/>
+        <syntaxHighlighterFactory
+            implementation="com.monkey.idea.JungleSyntaxHighlighterFactory"
+            language="Jungle"/>
+
+        <applicationService
+            serviceImplementation="com.monkey.idea.MonkeySettings"/>
+        <applicationConfigurable
+            parentId="tools"
+            instance="com.monkey.idea.MonkeySettingsConfigurable"
+            id="com.monkey.idea.settings"
+            displayName="Monkey C"/>
+
+        <localInspection
+            language="MonkeyC"
+            shortName="MonkeyLint"
+            displayName="Monkey C lint"
+            groupName="Monkey C"
+            enabledByDefault="true"
+            level="WARNING"
+            implementationClass="com.monkey.idea.MonkeyLintInspection"/>
+        <localInspection
+            language="Jungle"
+            shortName="MonkeyLintJungle"
+            displayName="Jungle lint"
+            groupName="Monkey C"
+            enabledByDefault="true"
+            level="WARNING"
+            implementationClass="com.monkey.idea.JungleLintInspection"/>
+    </extensions>
+
+    <actions>
+        <group id="MonkeyC" text="Monkey C" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action id="MonkeyC.NewProject" class="com.monkey.idea.actions.NewProjectAction"
+                    text="New Monkey C Project"
+                    description="Scaffold a new Connect IQ project">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt N"/>
+            </action>
+            <action id="MonkeyC.FormatDocument" class="com.monkey.idea.actions.FormatDocumentAction"
+                    text="Format Document"
+                    description="Format the current Monkey C/Jungle file">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt shift L"/>
+            </action>
+            <separator/>
+            <action id="MonkeyC.Build" class="com.monkey.idea.actions.BuildPrgAction"
+                    text="Build PRG" description="Compile the project to bin/&lt;name&gt;.prg"/>
+            <action id="MonkeyC.Run" class="com.monkey.idea.actions.RunSimulatorAction"
+                    text="Build and Run" description="Build and launch the app in the simulator"/>
+            <action id="MonkeyC.Test" class="com.monkey.idea.actions.TestAction"
+                    text="Test" description="Lint, format-check, and build test suites"/>
+            <action id="MonkeyC.Export" class="com.monkey.idea.actions.ExportIqAction"
+                    text="Export .iq" description="Package the app as bin/&lt;name&gt;.iq"/>
+            <action id="MonkeyC.Debug" class="com.monkey.idea.actions.DebugAction"
+                    text="Debug" description="Build and launch the SDK debugger (mdd)"/>
+            <separator/>
+            <action id="MonkeyC.Clean" class="com.monkey.idea.actions.CleanAction"
+                    text="Clean" description="Remove the project's bin/ build output"/>
+            <action id="MonkeyC.ProjectInfo" class="com.monkey.idea.actions.ProjectInfoAction"
+                    text="Project Info" description="Show discovered project details"/>
+            <action id="MonkeyC.Doctor" class="com.monkey.idea.actions.DoctorAction"
+                    text="Doctor" description="Check SDK, developer key, and project setup"/>
+        </group>
+    </actions>
+</idea-plugin>

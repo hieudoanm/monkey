@@ -11,6 +11,7 @@ on:
       - "crates/**"
       - "packages/extensions/vscode/**"
       - "packages/extensions/zed/**"
+      - "packages/extensions/jetbrains/**"
       - "packages/landing/**"
       - "packages/README.md"
       - "scripts/**"
@@ -122,6 +123,39 @@ jobs:
           path: packages/extensions/zed/download/*.tar.gz
           if-no-files-found: error
 
+  extension-jetbrains:
+    name: Extension - JetBrains
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6.3.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache Gradle
+        uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('packages/extensions/jetbrains/**/*.gradle*', 'packages/extensions/jetbrains/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
+      - name: Build plugin and run tests
+        working-directory: packages/extensions/jetbrains
+        run: ./gradlew buildPlugin test --no-daemon --console=plain
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: extension-jetbrains-plugin
+          path: packages/extensions/jetbrains/build/distributions/*.zip
+          if-no-files-found: error
+
   cli-quality:
     name: CLI - Quality
     runs-on: ubuntu-latest
@@ -202,6 +236,7 @@ jobs:
     needs:
       - extension-vscode
       - extension-zed
+      - extension-jetbrains
       - cli-build
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     permissions:
@@ -221,6 +256,28 @@ jobs:
         with:
           name: extension-zed
           path: dist
+
+      - name: Download JetBrains extension artifact
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: extension-jetbrains-plugin
+          path: dist
+
+      # The Gradle build names the plugin zip monkey-jetbrains-<version>.zip;
+      # normalize to the extension-<editor>-<product>-<version> scheme.
+      - name: Normalize JetBrains asset name
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          shopt -s nullglob
+          for f in *jetbrains*.zip; do
+            version="$(basename "$f")"
+            version="${version##*-}"
+            version="${version%.zip}"
+            mv "$f" "extension-jetbrains-monkey-c-${version}.zip"
+          done
+          ls -1
 
       - name: Download CLI binaries
         uses: actions/download-artifact@v8.0.2

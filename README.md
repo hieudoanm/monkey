@@ -34,6 +34,9 @@ Or install each piece manually:
   build with `pnpm run package` inside `packages/extensions/vscode`.
 - **Zed**: install `extension-zed-monkey-c.tar.gz` from the same release, or add
   the extension as a dev extension (see `packages/extensions/zed/README.md`).
+- **JetBrains**: install `extension-jetbrains-monkey-c-<version>.zip` from the
+  same release via **Settings → Plugins → Install Plugin from Disk** (see
+  `packages/extensions/jetbrains/README.md`).
 
 Verify your setup with `monkey doctor` — it checks the SDK, developer key,
 device profiles, and project discovery.
@@ -49,6 +52,7 @@ device profiles, and project discovery.
   - `monkey-cli` — the `monkey` binary: `format`, `lint`, `check`, `tokens`, `parse`.
 - **[`packages/extensions/vscode/`](packages/extensions/vscode/)** — Monkey C/Jungle VS Code extension: syntax highlighting, document formatting, theme, icons, and a Connect IQ SDK/simulator runtime preview.
 - **[`packages/extensions/zed/`](packages/extensions/zed/)** — Monkey C/Jungle Zed extension: Tree-sitter highlighting, external formatter, theme, icons, runtime-preview tasks.
+- **[`packages/extensions/jetbrains/`](packages/extensions/jetbrains/)** — JetBrains IDE plugin: file types, syntax highlighting, lint inspections, formatting, and CLI actions (Kotlin/IntelliJ Platform).
 - **[`packages/landing/`](packages/landing/)** — landing/docs site deployed to GitHub Pages.
 - **[`scripts/`](scripts/)** — install helpers (`install.sh`, `install-local.sh`).
 - **[`.github/workflows/ci.yaml`](.github/workflows/ci.yaml)** — Rust checks, extension packaging, and the rolling `latest` GitHub release.
@@ -96,7 +100,8 @@ not ship its own compiler or simulator.
 │   ├── README.md               # editor extensions overview
 │   ├── extensions/
 │   │   ├── vscode/             # VS Code extension
-│   │   └── zed/                # Zed extension
+│   │   ├── zed/                # Zed extension
+│   │   └── jetbrains/          # JetBrains IDE plugin
 │   └── landing/                # GitHub Pages site + docs
 └── scripts/                    # install helpers
 ```

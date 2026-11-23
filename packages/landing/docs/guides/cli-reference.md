@@ -22,14 +22,15 @@ Paths may be files or directories. Directories are searched recursively for
 ## format
 
 ```bash
-monkey format [--check|--write] [--stdin] [--indent-spaces N|--indent-tabs] [paths...]
+monkey format [--check|--write] [--stdin [label]] [--indent-spaces N|--indent-tabs] [paths...]
 ```
 
 - Default: prints the formatted source to stdout (rustfmt-style).
 - `--check` — report which files would change; exit 1 on drift.
 - `--write` — rewrite files in place.
-- `--stdin` — read source from stdin, write result to stdout (for editor
-  integrations).
+- `--stdin [label]` — read source from stdin, write result to stdout (for editor
+  integrations). The optional label (e.g. `file.jungle`) selects the formatter;
+  anything not ending in `.jungle` is treated as Monkey C.
 - `--indent-spaces N` / `--indent-tabs` — indentation style (default: 2 spaces).
 - `--crlf` — emit CRLF line endings.
 
