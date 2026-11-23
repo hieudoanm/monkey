@@ -111,16 +111,15 @@ jobs:
         run: bash -n scripts/install.sh
 
       # The Zed extension is declarative (no Rust/WASM), so the release
-      # artifact is a source zip of the extension directory.
+      # artifact is a source tarball of the extension directory.
       - name: Package extension
-        working-directory: packages/extensions/zed
-        run: zip -r extension-zed-monkey-c.zip . -x '*node_modules*' '.git/*'
+        run: make package
 
       - name: Upload extension artifact
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: extension-zed-zip
-          path: packages/extensions/zed/extension-zed-monkey-c.zip
+          name: extension-zed
+          path: packages/extensions/zed/download/*.tar.gz
           if-no-files-found: error
 
   cli-quality:
@@ -218,7 +217,7 @@ jobs:
       - name: Download Zed extension artifact
         uses: actions/download-artifact@v8.0.2
         with:
-          name: extension-zed-zip
+          name: extension-zed
           path: dist
 
       - name: Download CLI binaries

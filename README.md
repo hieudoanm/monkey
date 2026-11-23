@@ -32,7 +32,7 @@ Or install each piece manually:
   `cargo install --path crates/monkey-cli`.
 - **VS Code**: install `extension-vscode-monkey-c.vsix` from the same release, or
   build with `pnpm run package` inside `packages/extensions/vscode`.
-- **Zed**: install `extension-zed-monkey-c.zip` from the same release, or add
+- **Zed**: install `extension-zed-monkey-c.tar.gz` from the same release, or add
   the extension as a dev extension (see `packages/extensions/zed/README.md`).
 
 Verify your setup with `monkey doctor` — it checks the SDK, developer key,
