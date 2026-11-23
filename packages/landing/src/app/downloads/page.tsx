@@ -138,9 +138,7 @@ function CardGrid({ cells, cols }: { cells: Cell[]; cols: string }) {
           <h3 className="text-base-content m-0 text-lg leading-tight">
             {c.name}
           </h3>
-          <p className="text-base-content/60 mt-1 truncate text-sm">
-            {c.desc}
-          </p>
+          <p className="text-base-content/60 mt-1 truncate text-sm">{c.desc}</p>
           <div className="mt-4 flex flex-col gap-2">
             {c.assets.map((a) => (
               <a
@@ -168,7 +166,10 @@ const Downloads: FC = () => (
           </h1>
           <p className="mt-3 text-lg text-gray-500">
             The Monkey C toolchain for Garmin Connect IQ — CLI binaries and
-            editor extensions. Assets are in the{' '}
+            editor extensions.
+          </p>
+          <p className="mt-3 text-lg text-gray-500">
+            Assets are in the{' '}
             <a href={RELEASE_PAGE} className="text-primary">
               latest release
             </a>
