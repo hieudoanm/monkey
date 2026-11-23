@@ -6,15 +6,15 @@ import Terminal from '@/components/molecules/Terminal';
 import type { Metadata, NextPage } from 'next';
 import type { FC } from 'react';
 import {
-  LuBot,
-  LuBraces,
-  LuCode,
-  LuFileCheck,
-  LuGlobe,
-  LuMonitor,
-  LuPackage,
-  LuTerminal,
-} from 'react-icons/lu';
+  PiRobot,
+  PiBracketsCurly,
+  PiCode,
+  PiCheckSquare,
+  PiGlobe,
+  PiMonitor,
+  PiPackage,
+  PiTerminal,
+} from 'react-icons/pi';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/' },
@@ -26,42 +26,42 @@ const CLI_LATEST = `${GITHUB}/releases/download/latest`;
 
 const FEATURES: Feature[] = [
   {
-    icon: LuTerminal,
+    icon: PiTerminal,
     title: 'monkey CLI',
     body: 'Zero-dependency Rust binary with format, lint, check, parse, tokens, doctor, sdk, device, project, new, test, build, run, mcp, and lsp commands — it compiles PRGs, launches the simulator, and serves MCP/LSP over stdio. Prebuilt for Linux, macOS, and Windows.',
   },
   {
-    icon: LuBraces,
+    icon: PiBracketsCurly,
     title: 'Parser & linter',
     body: 'A real Monkey C parser powers lint rules — unused variables, unreachable code, identical operands, empty blocks — plus lexer/parser diagnostics. JSON and SARIF output for CI.',
   },
   {
-    icon: LuFileCheck,
+    icon: PiCheckSquare,
     title: 'monkey check',
     body: 'One command runs lint plus a format-drift check, designed for pre-commit hooks and CI. Exits non-zero on any finding.',
   },
   {
-    icon: LuCode,
+    icon: PiCode,
     title: 'VS Code extension',
     body: 'Syntax highlighting, document formatting, inline lint diagnostics via monkey lint --stdin, a dark theme, file icons, and runtime preview — packaged as a .vsix.',
   },
   {
-    icon: LuGlobe,
+    icon: PiGlobe,
     title: 'Zed extension',
     body: 'Loaded as a dev extension from source: Tree-sitter highlighting, external formatter, lint/check tasks, runtime preview, and the Monkey C theme and icons.',
   },
   {
-    icon: LuMonitor,
+    icon: PiMonitor,
     title: 'Build & run',
     body: 'monkey build compiles a PRG with the official monkeyc; monkey run builds, starts the simulator, and deploys with monkeydo — the same flow as the editor runtime preview, from the terminal.',
   },
   {
-    icon: LuBot,
+    icon: PiRobot,
     title: 'MCP & language server',
     body: 'monkey mcp exposes lint, parse, format, project, SDK, and device tools to AI agents over stdio; monkey lsp adds diagnostics, document symbols, hover, go-to-definition, find-references, completion, formatting, and rename to any LSP-capable editor.',
   },
   {
-    icon: LuPackage,
+    icon: PiPackage,
     title: 'SDK & device discovery',
     body: 'monkey doctor, sdk, and device commands find your Connect IQ SDK, developer key, and 180+ device profiles using the same lookup order as the editor extensions — never hardcoded.',
   },
@@ -220,7 +220,7 @@ const HomePage: NextPage = () => (
         />
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <article className="card border-base-300 bg-base-100 rounded-2xl border p-6">
-            <LuPackage className="text-primary mb-3 h-6 w-6" />
+            <PiPackage className="text-primary mb-3 h-6 w-6" />
             <h3 className="text-base-content m-0 mb-2 text-lg font-bold">
               VS Code — monkey-c
             </h3>
@@ -238,7 +238,7 @@ const HomePage: NextPage = () => (
             </a>
           </article>
           <article className="card border-base-300 bg-base-100 rounded-2xl border p-6">
-            <LuGlobe className="text-primary mb-3 h-6 w-6" />
+            <PiGlobe className="text-primary mb-3 h-6 w-6" />
             <h3 className="text-base-content m-0 mb-2 text-lg font-bold">
               Zed — Monkey C
             </h3>
