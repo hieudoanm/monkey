@@ -37,9 +37,7 @@ install_cli() {
     arch="$(uname -m)"
     case "$os/$arch" in
         darwin/arm64|darwin/aarch64) asset="cli-monkey-aarch64-apple-darwin" ;;
-        darwin/x86_64)
-            echo "Intel macOS: no prebuilt release — build locally: cd crates && cargo build --release" >&2
-            return 1 ;;
+        darwin/x86_64)               asset="cli-monkey-x86_64-apple-darwin" ;;
         linux/x86_64)                asset="cli-monkey-x86_64-unknown-linux-gnu" ;;
         mingw*|msys*|cygwin*|windows*)
             echo "Windows: download cli-monkey-x86_64-pc-windows-msvc.exe manually" >&2
