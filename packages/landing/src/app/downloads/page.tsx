@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
 import type { IconType } from 'react-icons';
 import {
   FaApple,
+  FaCode,
   FaDownload,
   FaLinux,
   FaPuzzlePiece,
@@ -26,16 +27,18 @@ interface Asset {
   href: string;
 }
 
-interface Platform {
+interface Cell {
   name: string;
   icon: IconType;
+  desc: string;
   assets: Asset[];
 }
 
-const CLI: Platform[] = [
+const CLI: Cell[] = [
   {
-    name: 'macOS',
+    name: 'macOS (Silicon)',
     icon: FaApple,
+    desc: 'Apple Silicon Macs — M1 and later.',
     assets: [
       {
         label: 'Apple Silicon',
@@ -44,18 +47,17 @@ const CLI: Platform[] = [
     ],
   },
   {
-    name: 'Windows',
-    icon: FaWindows,
+    name: 'macOS (Intel)',
+    icon: FaApple,
+    desc: 'Intel-based Macs.',
     assets: [
-      {
-        label: '.exe',
-        href: `${RELEASES}/cli-monkey-x86_64-pc-windows-msvc.exe`,
-      },
+      { label: 'Intel', href: `${RELEASES}/cli-monkey-x86_64-apple-darwin` },
     ],
   },
   {
     name: 'Linux',
     icon: FaLinux,
+    desc: 'x86_64 GNU/Linux distributions.',
     assets: [
       {
         label: 'x86_64',
@@ -63,34 +65,84 @@ const CLI: Platform[] = [
       },
     ],
   },
+  {
+    name: 'Windows',
+    icon: FaWindows,
+    desc: 'Windows 10/11, x86_64.',
+    assets: [
+      {
+        label: '.exe',
+        href: `${RELEASES}/cli-monkey-x86_64-pc-windows-msvc.exe`,
+      },
+    ],
+  },
 ];
 
-const EXTENSIONS: Asset[] = [
+const EDITOR_EXT: Cell[] = [
   {
-    label: 'VS Code extension (.vsix)',
-    href: `${RELEASES}/extension-vscode-monkey-c.vsix`,
+    name: 'VS Code',
+    icon: FaCode,
+    desc: 'Visual Studio Code extension.',
+    assets: [
+      {
+        label: 'VS Code (.vsix)',
+        href: `${RELEASES}/extension-vscode-monkey-c.vsix`,
+      },
+    ],
   },
   {
-    label: 'Zed extension (.tar.gz)',
-    href: `${RELEASES}/extension-zed-monkey-c.tar.gz`,
+    name: 'Zed',
+    icon: FaTerminal,
+    desc: 'Zed editor extension.',
+    assets: [
+      {
+        label: 'Zed (.tar.gz)',
+        href: `${RELEASES}/extension-zed-monkey-c.tar.gz`,
+      },
+    ],
   },
 ];
 
-function PlatformGrid({ platforms }: { platforms: Platform[] }) {
+function Section({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: IconType;
+  title: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-      {platforms.map((p) => (
+    <div className="mb-12 last:mb-0">
+      <h2 className="text-base-content mb-6 flex items-center gap-2 text-2xl leading-tight">
+        <Icon className="text-primary h-6 w-6" />
+        {title}
+      </h2>
+      {children}
+    </div>
+  );
+}
+
+function CardGrid({ cells, cols }: { cells: Cell[]; cols: string }) {
+  const visible = cells.filter((c) => c.assets.length > 0);
+  if (visible.length === 0) return null;
+  return (
+    <div className={`grid grid-cols-1 gap-6 sm:grid-cols-2 ${cols}`}>
+      {visible.map((c) => (
         <div
-          key={p.name}
+          key={c.name}
           className="card border-base-300 bg-base-100 border p-6">
           <div className="bg-primary/10 text-primary mb-3.5 flex h-11 w-11 items-center justify-center rounded-lg">
-            <p.icon className="h-6 w-6" />
+            <c.icon className="h-6 w-6" />
           </div>
-          <h3 className="text-base-content m-0 mb-1 text-lg leading-tight">
-            {p.name}
+          <h3 className="text-base-content m-0 text-lg leading-tight">
+            {c.name}
           </h3>
+          <p className="text-base-content/60 mt-1 line-clamp-2 text-sm">
+            {c.desc}
+          </p>
           <div className="mt-4 flex flex-col gap-2">
-            {p.assets.map((a) => (
+            {c.assets.map((a) => (
               <a
                 key={a.href}
                 href={a.href}
@@ -124,33 +176,15 @@ const Downloads: FC = () => (
           </p>
         </div>
 
-        <h2 className="text-base-content mb-6 flex items-center gap-2 text-2xl leading-tight">
-          <FaTerminal className="text-primary h-6 w-6" />
-          CLI
-        </h2>
-        <div className="mb-12">
-          <PlatformGrid platforms={CLI} />
-        </div>
+        <Section icon={FaTerminal} title="CLI">
+          <CardGrid cells={CLI} cols="lg:grid-cols-4" />
+        </Section>
 
-        <h2 className="text-base-content mb-6 flex items-center gap-2 text-2xl leading-tight">
-          <FaPuzzlePiece className="text-primary h-6 w-6" />
-          Editor extensions
-        </h2>
-        <div className="border-base-300 bg-base-200/50 mb-12 rounded-2xl border p-6">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            {EXTENSIONS.map((a) => (
-              <a
-                key={a.href}
-                href={a.href}
-                className="btn btn-primary btn-sm gap-2">
-                <FaDownload className="h-3.5 w-3.5" />
-                {a.label}
-              </a>
-            ))}
-          </div>
-        </div>
+        <Section icon={FaPuzzlePiece} title="Editor Extensions">
+          <CardGrid cells={EDITOR_EXT} cols="lg:grid-cols-3" />
+        </Section>
 
-        <p className="text-base-content/60 text-center text-sm">
+        <p className="text-base-content/60 mt-8 text-center text-sm">
           Or build the CLI from source:{' '}
           <code className="bg-base-300 rounded px-1.5 py-0.5 font-mono text-xs">
             cargo build --release -p monkey-cli
