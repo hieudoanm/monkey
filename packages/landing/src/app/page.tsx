@@ -301,8 +301,8 @@ const HomePage: NextPage = () => (
     <CTA
       title="Ready to write Monkey C?"
       description="Install the CLI, wire up your editor, and preview on the simulator."
-      primary={{ label: 'Download VSIX', href: VSIX, external: true }}
-      secondary={{ label: 'View on GitHub', href: GITHUB, external: true }}
+      primary={{ label: 'Download', href: '/downloads/' }}
+      secondary={{ label: 'View Docs', href: '/docs/' }}
     />
   </main>
 );
