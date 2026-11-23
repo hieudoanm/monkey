@@ -71,8 +71,8 @@ const EXTENSIONS: Asset[] = [
     href: `${RELEASES}/extension-vscode-monkey-c.vsix`,
   },
   {
-    label: 'Zed extension (.zip)',
-    href: `${RELEASES}/extension-zed-monkey-c.zip`,
+    label: 'Zed extension (.tar.gz)',
+    href: `${RELEASES}/extension-zed-monkey-c.tar.gz`,
   },
 ];
 

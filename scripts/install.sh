@@ -5,7 +5,7 @@
 # Installs, by default:
 #   1. the `monkey` CLI binary into ~/.local/bin
 #   2. the VS Code extension (.vsix) when the `code` CLI is available
-#   3. the Zed extension source zip into ~/.local/share/monkey/
+#   3. the Zed extension source tarball into ~/.local/share/monkey/
 #
 # Usage:
 #   ./scripts/install.sh [--cli-only | --editor-only | --zed-only]
@@ -37,7 +37,9 @@ install_cli() {
     arch="$(uname -m)"
     case "$os/$arch" in
         darwin/arm64|darwin/aarch64) asset="cli-monkey-aarch64-apple-darwin" ;;
-        darwin/x86_64)               asset="cli-monkey-x86_64-apple-darwin" ;;
+        darwin/x86_64)
+            echo "Intel macOS: no prebuilt release — build locally: cd crates && cargo build --release" >&2
+            return 1 ;;
         linux/x86_64)                asset="cli-monkey-x86_64-unknown-linux-gnu" ;;
         mingw*|msys*|cygwin*|windows*)
             echo "Windows: download cli-monkey-x86_64-pc-windows-msvc.exe manually" >&2
@@ -85,13 +87,13 @@ install_vscode() {
 # ---------- Zed ----------
 install_zed() {
     local dest="$HOME/.local/share/monkey/zed-extension"
-    echo "Downloading extension-zed-monkey-c.zip..."
-    if ! curl -fsSL "${BASE_URL}/extension-zed-monkey-c.zip" -o "$TMP_DIR/monkey-c-zed.zip"; then
-        echo "error: could not download ${BASE_URL}/extension-zed-monkey-c.zip" >&2
+    echo "Downloading extension-zed-monkey-c.tar.gz..."
+    if ! curl -fsSL "${BASE_URL}/extension-zed-monkey-c.tar.gz" -o "$TMP_DIR/monkey-c-zed.tar.gz"; then
+        echo "error: could not download ${BASE_URL}/extension-zed-monkey-c.tar.gz" >&2
         return 1
     fi
     mkdir -p "$dest"
-    unzip -oq "$TMP_DIR/monkey-c-zed.zip" -d "$dest"
+    tar -xzf "$TMP_DIR/monkey-c-zed.tar.gz" -d "$dest"
     cat <<EOF
 Zed extension source extracted to:
   ${dest}
