@@ -62,5 +62,15 @@ cd monkey/packages/extensions/zed
 Then in Zed: **Extensions → Install Dev Extension** and select
 `packages/extensions/zed`.
 
-The `extension-zed-monkey-c.tar.gz` release asset is a source snapshot of the same
-directory if you prefer not to clone.
+The `extension-zed-monkey-c.tar.gz` release asset is a source snapshot of the
+same directory if you prefer not to clone.
+
+## Per-platform guides
+
+- [macOS (Apple Silicon)](../guides/how-to-install-cli-macos-silicon.md)
+- [macOS (Intel)](../guides/how-to-install-cli-macos-intel.md)
+- [Linux](../guides/how-to-install-cli-linux.md)
+- [Windows](../guides/how-to-install-cli-windows.md)
+- [VS Code](../guides/how-to-install-vscode.md)
+- [Zed](../guides/how-to-install-zed.md)
+- [JetBrains](../guides/how-to-install-jetbrains.md)
